@@ -14,7 +14,6 @@ const statusStyles: Record<GradeStatus, { label: string; className: string }> = 
 };
 
 function tokenizeAnswer(answer: string, result: GradeResult): string[] {
-  if (answer.includes(" ")) return answer.split(/(\s+)/).filter(Boolean);
   const surfaces = [...(result.words ?? [])]
     .map((word) => word.surface)
     .filter(Boolean)
@@ -26,9 +25,22 @@ function tokenizeAnswer(answer: string, result: GradeResult): string[] {
     if (matched) {
       tokens.push(matched);
       index += matched.length;
+    } else if (/\s/.test(answer[index])) {
+      let end = index + 1;
+      while (end < answer.length && /\s/.test(answer[end])) end += 1;
+      tokens.push(answer.slice(index, end));
+      index = end;
     } else {
-      tokens.push(answer[index]);
-      index += 1;
+      let end = index + 1;
+      while (
+        end < answer.length &&
+        !/\s/.test(answer[end]) &&
+        !surfaces.some((surface) => answer.startsWith(surface, end))
+      ) {
+        end += 1;
+      }
+      tokens.push(answer.slice(index, end));
+      index = end;
     }
   }
   return tokens;
@@ -36,7 +48,9 @@ function tokenizeAnswer(answer: string, result: GradeResult): string[] {
 
 function wordInfo(result: GradeResult, token: string) {
   const clean = token.replace(/[。！？!?.,，、¿¡]/g, "");
-  return result.words?.find((word) => word.surface === clean || clean.includes(word.surface));
+  return result.words?.find(
+    (word) => word.surface === clean || clean.includes(word.surface) || word.surface.includes(clean),
+  );
 }
 
 function modelAnswerNotes(markdown: string): { natural?: string; literal?: string } {

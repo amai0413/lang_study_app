@@ -284,6 +284,7 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 - 単語を少し並べただけで、問題の中心語彙が不足している場合は answerAssessment.vocabulary.status を incorrect にする
 - 例: 日本語文「明日、早く起きなければなりません。」に対して「मैं कल」だけなら、中心語彙「जल्दी」「उठना」と義務表現が欠けるため vocabulary は incorrect。words には जल्दी / उठना を incorrect として含める
 - answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く
+- answerAssessment.detail は短すぎないように、それぞれ2〜3文で「何ができているか」「何を直すか」「回答中の具体的な語句」を含める
 - 記号は correct=◯、partial=△、incorrect=× に固定する
 - 「あなたの回答について」という見出しや内容は explanationMarkdown には書かない。回答評価は answerAssessment にだけ入れる
 

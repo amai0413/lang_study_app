@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+
 interface SpeakButtonProps {
   text: string;
   lang: string;
@@ -27,8 +29,7 @@ function voiceScore(voice: SpeechSynthesisVoice, lang: string): number {
   return score;
 }
 
-function bestVoice(lang: string): SpeechSynthesisVoice | undefined {
-  const voices = window.speechSynthesis.getVoices();
+function bestVoice(lang: string, voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
   return voices
     .filter((voice) => voice.lang.toLowerCase().startsWith(lang.toLowerCase().split("-")[0]))
     .sort((a, b) => voiceScore(b, lang) - voiceScore(a, lang))[0];
@@ -36,13 +37,30 @@ function bestVoice(lang: string): SpeechSynthesisVoice | undefined {
 
 export default function SpeakButton({ text, lang, label = "音声", disabled }: SpeakButtonProps) {
   const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(() =>
+    typeof window !== "undefined" && "speechSynthesis" in window
+      ? window.speechSynthesis.getVoices()
+      : [],
+  );
+  const selectedVoice = useMemo(() => bestVoice(lang, voices), [lang, voices]);
+
+  useEffect(() => {
+    if (!canSpeak) return;
+    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    const id = window.setTimeout(loadVoices, 0);
+    return () => {
+      window.clearTimeout(id);
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+    };
+  }, [canSpeak]);
 
   const handleSpeak = () => {
     if (!canSpeak || disabled || !text.trim()) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.voice = bestVoice(lang) ?? null;
+    utterance.voice = selectedVoice ?? null;
     utterance.rate = 0.88;
     utterance.pitch = 1.04;
     window.speechSynthesis.speak(utterance);
@@ -55,7 +73,13 @@ export default function SpeakButton({ text, lang, label = "音声", disabled }: 
       disabled={disabled || !canSpeak || !text.trim()}
       className="inline-flex min-h-9 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-xs font-black text-zinc-600 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
       aria-label={label}
-      title={canSpeak ? label : "このブラウザでは読み上げに対応していません"}
+      title={
+        canSpeak
+          ? selectedVoice
+            ? `${label}: ${selectedVoice.name}`
+            : `${label}: 対象言語の音声が見つからないためデフォルト音声を使います`
+          : "このブラウザでは読み上げに対応していません"
+      }
     >
       <span className="text-base leading-none">♪</span>
       <span className="ml-1 hidden sm:inline">{label}</span>

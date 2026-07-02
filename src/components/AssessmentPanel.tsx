@@ -14,12 +14,21 @@ const sectionLabels: Record<keyof AnswerAssessment, string> = {
 
 export default function AssessmentPanel({ result }: { result: GradeResult }) {
   const assessment = result.answerAssessment;
+  const correctWords =
+    result.words?.filter((word) => (word.correctness ?? (word.remembered ? "correct" : "incorrect")) === "correct") ??
+    [];
+  const reviewWords =
+    result.words?.filter((word) => (word.correctness ?? (word.remembered ? "correct" : "incorrect")) !== "correct") ??
+    [];
 
   if (!assessment) return null;
 
   return (
     <div className="h-full rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-black uppercase tracking-wide text-zinc-400">Your Answer</p>
+      <p className="mt-2 rounded-lg bg-zinc-50 p-3 text-sm font-bold leading-relaxed text-zinc-700">
+        {result.feedback}
+      </p>
       <div className="mt-4 grid gap-4">
         {(Object.keys(sectionLabels) as Array<keyof AnswerAssessment>).map((key) => {
           const item = assessment[key];
@@ -37,6 +46,32 @@ export default function AssessmentPanel({ result }: { result: GradeResult }) {
           );
         })}
       </div>
+      {correctWords.length > 0 || reviewWords.length > 0 ? (
+        <div className="mt-4 grid gap-3">
+          {correctWords.length > 0 ? (
+            <section className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-emerald-800">
+              <h3 className="text-sm font-black">できている単語</h3>
+              <p className="mt-2 text-sm font-bold leading-relaxed">
+                {correctWords.map((word) => word.surface).join("、")}
+              </p>
+            </section>
+          ) : null}
+          {reviewWords.length > 0 ? (
+            <section className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-amber-800">
+              <h3 className="text-sm font-black">復習する単語</h3>
+              <div className="mt-2 grid gap-2">
+                {reviewWords.slice(0, 5).map((word) => (
+                  <p key={word.surface} className="text-sm font-bold leading-relaxed">
+                    {word.surface}
+                    {word.meaning ? ` = ${word.meaning}` : ""}
+                    {word.note ? `（${word.note}）` : ""}
+                  </p>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
