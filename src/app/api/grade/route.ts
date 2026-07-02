@@ -1,11 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { parseAIJSON } from "@/lib/aiJson";
+import { generateGeminiText, hasGeminiApiKey } from "@/lib/gemini";
+import { LANGUAGE_LABELS, isTargetLanguage, targetLanguageListLabel } from "@/lib/languages";
 import type { TargetLanguage, Level } from "@/types/question";
 
 // 採点 + 回答を踏まえた解説を1回で生成する。
 // 解説③はユーザーの回答に即した内容にする。解説フォーマットは固定して再現性を保つ。
 const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説の専門家です。
-学習者の回答を採点し、その回答を踏まえた詳しい文法解説を日本語で書きます。
+学習者の回答を採点し、その回答を踏まえた文法解説を日本語で書きます。
 
 必ず以下のJSON形式のみで返答してください。コードフェンスや前置きは不要です。
 
@@ -15,7 +17,7 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
   "betterExpression": "より自然な言い方（statusがacceptable/closeのときのみ。correctのときは空文字）",
   "explanationMarkdown": "下記テンプレートに厳密に従った解説",
   "words": [
-    { "surface": "単語", "reading": "読み方（ピンインやローマ字）", "meaning": "日本語の意味", "pos": "品詞" }
+    { "surface": "単語", "reading": "読み方（ピンインやローマ字。スペイン語の場合は英語での意味）", "meaning": "日本語の意味", "pos": "品詞" }
   ],
   "grammarItems": ["この問題で使われた文法・構文の名前（例: 動詞+目的語の語順, 疑問助詞嗎）"]
 }
@@ -45,9 +47,7 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 | [単語] | [読み] | [品詞] | [意味] | [補足] |
 
 ## ③ あなたの回答について
-学習者の回答「[ユーザーの回答]」を引用し、どこが正しく、どこが間違っていたかを具体的に指摘する。
-別の正しい言い方だった場合は「正しいですが、より自然なのは〜」と伝える。
-正しい構文の仕組みと、日本語との語順・発想の違いを2〜3段落で説明する。
+学習者の回答「[ユーザーの回答]」を引用し、どこが正しく、どこが間違っていたかを具体的に指摘する。2〜3段落に収める。
 
 ## ④ 覚えておきたい構文
 **[文法パターン]**
@@ -64,17 +64,39 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 - [重要な文法ポイント]
 - 今回の回答を踏まえ、特に復習すべき点を1〜2個挙げる`;
 
-const client = new Anthropic();
-
-function extractJSON(text: string): string {
-  let t = text.trim();
-  const fence = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
-  if (fence?.[1]) t = fence[1].trim();
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && start < end) t = t.slice(start, end + 1);
-  return t;
-}
+const GRADE_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["correct", "acceptable", "close", "incorrect"] },
+    feedback: { type: "string" },
+    betterExpression: { type: "string" },
+    explanationMarkdown: { type: "string" },
+    words: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          surface: { type: "string" },
+          reading: { type: "string" },
+          meaning: { type: "string" },
+          pos: { type: "string" },
+        },
+        required: ["surface", "reading", "meaning", "pos"],
+        propertyOrdering: ["surface", "reading", "meaning", "pos"],
+      },
+    },
+    grammarItems: { type: "array", items: { type: "string" } },
+  },
+  required: ["status", "feedback", "betterExpression", "explanationMarkdown", "words", "grammarItems"],
+  propertyOrdering: [
+    "status",
+    "feedback",
+    "betterExpression",
+    "explanationMarkdown",
+    "words",
+    "grammarItems",
+  ],
+};
 
 interface GradeBody {
   targetLanguage?: TargetLanguage;
@@ -87,8 +109,8 @@ interface GradeBody {
 }
 
 export async function POST(request: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY が設定されていません。" }, { status: 500 });
+  if (!hasGeminiApiKey()) {
+    return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
   }
 
   let body: GradeBody;
@@ -102,8 +124,18 @@ export async function POST(request: NextRequest) {
   if (!targetLanguage || !japanesePrompt || !strictAnswer || !userAnswer) {
     return NextResponse.json({ error: "必須フィールドが不足しています。" }, { status: 400 });
   }
+  if (!isTargetLanguage(targetLanguage)) {
+    return NextResponse.json(
+      { error: `targetLanguage に ${targetLanguageListLabel()} のいずれかを指定してください。` },
+      { status: 400 },
+    );
+  }
 
-  const langLabel = targetLanguage === "zh" ? "中国語" : "ヒンディー語";
+  const langLabel = LANGUAGE_LABELS[targetLanguage];
+  const readingInstruction =
+    targetLanguage === "es"
+      ? "words[].reading と単語解説表の「読み方」列には、発音ではなく英語での意味を入れてください（例: soy -> I am, casa -> house）。"
+      : "words[].reading と単語解説表の「読み方」列には、読み方を入れてください（中国語はピンイン、ヒンディー語はローマ字）。";
 
   const userMessage = `以下の練習問題を採点し、回答を踏まえた解説を作成してください。
 
@@ -116,30 +148,24 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 
 学習者の回答: ${userAnswer}
 
+単語欄の指示: ${readingInstruction}
+
 この回答を採点し、指定のJSON形式で返してください。解説③は必ず学習者の回答を引用して具体的に説明すること。`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 2560,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+    const text = await generateGeminiText({
+      maxOutputTokens: 4096,
+      responseSchema: GRADE_RESPONSE_SCHEMA,
+      systemInstruction: SYSTEM_PROMPT,
+      prompt: userMessage,
+      temperature: 0.1,
     });
-
-    if (response.stop_reason === "refusal") {
-      return NextResponse.json({ error: "採点が拒否されました。" }, { status: 422 });
-    }
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      return NextResponse.json({ error: "レスポンスが空でした。" }, { status: 500 });
-    }
 
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(extractJSON(textBlock.text));
+      parsed = parseAIJSON(text);
     } catch {
-      console.error("[/api/grade] raw:", textBlock.text.slice(0, 400));
+      console.error("[/api/grade] raw:", text.slice(0, 400));
       return NextResponse.json({ error: "採点結果の解析に失敗しました。" }, { status: 500 });
     }
 

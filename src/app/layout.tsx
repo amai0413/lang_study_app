@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Voice Grammar Trainer",
-  description: "日本語の文を中国語・ヒンディー語で音声/手入力回答する文法練習アプリ",
+  title: "Grammar Trainer",
+  description: "日本語の文を中国語・ヒンディー語・スペイン語で手入力回答する文法練習アプリ",
 };
 
 export default function RootLayout({

@@ -1,5 +1,6 @@
 export type Level = "A1" | "A2" | "B1" | "B2";
-export type TargetLanguage = "zh" | "hi";
+export const TARGET_LANGUAGES = ["zh", "hi", "es"] as const;
+export type TargetLanguage = (typeof TARGET_LANGUAGES)[number];
 
 export interface CommonMistake {
   answer: string;

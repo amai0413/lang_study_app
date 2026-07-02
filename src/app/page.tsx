@@ -7,16 +7,13 @@ import { appendHistory, loadHistory } from "@/lib/storage";
 import { selectTarget, type QuizTarget } from "@/lib/selectTarget";
 import { recordMasteryAttempt } from "@/lib/masteryStore";
 import { recordWords, getWordStats } from "@/lib/wordStore";
+import { LANGUAGE_LABELS, TARGET_LANGUAGES } from "@/lib/languages";
 import QuestionCard from "@/components/QuestionCard";
-import SpeechInput from "@/components/SpeechInput";
+import AnswerInput from "@/components/AnswerInput";
 import ResultPanel from "@/components/ResultPanel";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import LevelSelector from "@/components/LevelSelector";
-
-const LANGUAGE_LABELS: Record<TargetLanguage, string> = {
-  zh: "中国語",
-  hi: "ヒンディー語",
-};
+import StudyStatusView from "@/components/StudyStatusView";
 
 async function fetchQuestion(
   lang: TargetLanguage,
@@ -62,6 +59,7 @@ export default function Home() {
   const [userInput, setUserInput] = useState("");
   const [gradeResult, setGradeResult] = useState<GradeResult | null>(null);
   const [isReview, setIsReview] = useState(false);
+  const [showStudyStatus, setShowStudyStatus] = useState(false);
   const [wordStats, setWordStats] = useState<{ learned: number; review: number }>({
     learned: 0,
     review: 0,
@@ -149,13 +147,25 @@ export default function Home() {
     setIsGrading(false);
   };
 
+  if (showStudyStatus) {
+    return (
+      <StudyStatusView
+        initialLanguage={targetLanguage}
+        onClose={() => {
+          setShowStudyStatus(false);
+          if (targetLanguage) setWordStats(getWordStats(targetLanguage));
+        }}
+      />
+    );
+  }
+
   // ── 言語選択画面 ──
   if (!targetLanguage) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center bg-white px-6">
         <div className="flex w-full max-w-sm flex-col items-center gap-10">
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold text-zinc-900">Voice Grammar Trainer</h1>
+            <h1 className="text-2xl font-bold text-zinc-900">Grammar Trainer</h1>
             <p className="text-sm text-zinc-500">学習する言語を選んでください</p>
           </div>
           <div className="flex w-full flex-col gap-4">
@@ -164,7 +174,7 @@ export default function Home() {
               <LevelSelector value={level} onChange={setLevel} />
             </div>
             <div className="flex w-full flex-col gap-3">
-              {(["zh", "hi"] as TargetLanguage[]).map((lang) => (
+              {TARGET_LANGUAGES.map((lang) => (
                 <button
                   key={lang}
                   type="button"
@@ -175,6 +185,13 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowStudyStatus(true)}
+              className="min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100"
+            >
+              学習状況を見る
+            </button>
           </div>
         </div>
       </div>
@@ -221,21 +238,30 @@ export default function Home() {
   return (
     <div className="min-h-full bg-zinc-50">
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6 sm:py-10">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-lg font-bold text-zinc-900">Voice Grammar Trainer</h1>
+            <h1 className="text-lg font-bold text-zinc-900">Grammar Trainer</h1>
             <p className="text-xs text-zinc-500">
               {LANGUAGE_LABELS[targetLanguage]}・学習単語 {wordStats.learned}
               {wordStats.review > 0 ? `・復習 ${wordStats.review}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleChangeLanguage}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
-          >
-            言語を変更
-          </button>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowStudyStatus(true)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800"
+            >
+              学習状況
+            </button>
+            <button
+              type="button"
+              onClick={handleChangeLanguage}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+            >
+              言語を変更
+            </button>
+          </div>
         </header>
 
         <LevelSelector value={level} onChange={handleLevelChange} disabled={isGenerating || isGrading} />
@@ -251,12 +277,7 @@ export default function Home() {
 
             <QuestionCard question={currentQuestion} />
 
-            <SpeechInput
-              targetLanguage={targetLanguage}
-              value={userInput}
-              onChange={setUserInput}
-              disabled={!!gradeResult || isGrading}
-            />
+            <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
 
             {gradeResult ? (
               <>

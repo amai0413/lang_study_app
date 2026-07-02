@@ -1,6 +1,6 @@
-# Voice Grammar Trainer
+# Grammar Trainer
 
-日本語の短文を見て、中国語またはヒンディー語で（音声 or 手入力で）回答する、個人学習用の文法練習アプリのMVPです。
+日本語の短文を見て、中国語・ヒンディー語・スペイン語で手入力回答する、個人学習用の文法練習アプリのMVPです。
 
 ## 起動方法
 
@@ -11,20 +11,22 @@ npm run dev
 
 [http://localhost:3000](http://localhost:3000) を開いてください。
 
-スマホで試す場合は、PCとスマホを同じWi-Fiに繋ぎ、`npm run dev -- --hostname 0.0.0.0` で起動して `http://<PCのIPアドレス>:3000` にアクセスしてください（音声認識はHTTPS環境でしか動かないブラウザもあります）。
+Gemini API を使うため、`.env.local` に `GEMINI_API_KEY` を設定してください。モデルを変えたい場合は任意で `GEMINI_MODEL` を指定できます。
+
+スマホで試す場合は、PCとスマホを同じWi-Fiに繋ぎ、`npm run dev -- --hostname 0.0.0.0` で起動して `http://<PCのIPアドレス>:3000` にアクセスしてください。
 
 ## できること
 
-- 中国語 / ヒンディー語の切り替え
-- 日本語の例文を見て、音声入力（Web Speech API）または手入力で回答
-- ルールベースの判定（正解 / 惜しい / 不正解）と文法解説（Markdown）の表示
-- 回答履歴をブラウザの localStorage に保存
+- 中国語 / ヒンディー語 / スペイン語の切り替え
+- 日本語の例文を見て、手入力で回答
+- Gemini API による判定（正解 / 許容 / 惜しい / 不正解）と文法解説（Markdown）の表示
+- 回答履歴・単語・文法習得度をブラウザの localStorage に保存
 
 ## 制約
 
-- 認証・課金・クラウドDB・外部AI APIは未実装（個人利用ローカルMVP）
-- 音声認識に対応していないブラウザでは自動的に手入力のみの表示に切り替わります
+- 認証・クラウドDBは未実装（個人利用ローカルMVP）
+- 音声入力には対応していません
 
 ## 問題データを増やす
 
-`src/data/questions.ts` の配列に `Question` オブジェクトを追加するだけで問題が増やせます。型定義は `src/types/question.ts` を参照してください。
+`src/data/curriculum.ts` の `curriculum` 配列に文法項目を追加すると、出題AIが自動で参照します。型定義は `src/types/question.ts` を参照してください。
