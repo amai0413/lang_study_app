@@ -35,7 +35,7 @@ const markdownComponents: Components = {
 export default function ExplanationPanel({ markdown }: { markdown?: string }) {
   if (!markdown) return null;
   return (
-    <div className="w-full rounded-2xl border border-zinc-200 bg-white p-4 sm:p-6">
+    <div className="w-full rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">文法解説</p>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
         {markdown}

@@ -21,20 +21,20 @@ export default function ResultPanel({
   const style = statusStyles[result.status];
 
   return (
-    <div className={`flex flex-col gap-2 rounded-2xl border p-4 ${style.className}`}>
+    <div className={`flex flex-col gap-2 rounded-lg border p-4 ${style.className}`}>
       <span className="w-fit rounded-full bg-white/60 px-3 py-1 text-sm font-bold">
         {style.label}
       </span>
       <p className="text-sm leading-relaxed">{result.feedback}</p>
 
       {result.betterExpression && result.status !== "correct" ? (
-        <div className="mt-1 rounded-xl bg-white/70 p-3">
+        <div className="mt-1 rounded-lg bg-white/70 p-3">
           <p className="text-xs font-medium text-zinc-500">より自然な言い方</p>
           <p className="text-lg font-semibold text-zinc-900">{result.betterExpression}</p>
         </div>
       ) : null}
 
-      <div className="mt-1 rounded-xl bg-white/70 p-3">
+      <div className="mt-1 rounded-lg bg-white/70 p-3">
         <p className="text-xs font-medium text-zinc-500">模範解答</p>
         <p className="text-lg font-semibold text-zinc-900">{question.strictAnswer}</p>
         <p className="mt-1 text-xs text-zinc-500">文法ポイント: {question.grammarPoint}</p>

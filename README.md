@@ -11,7 +11,7 @@ npm run dev
 
 [http://localhost:3000](http://localhost:3000) を開いてください。
 
-Gemini API を使うため、`.env.local` に `GEMINI_API_KEY` を設定してください。モデルを変えたい場合は任意で `GEMINI_MODEL` を指定できます。
+Gemini API を使うため、`.env.local` に `GEMINI_API_KEY` を設定してください。デフォルトは速度優先の `gemini-3.1-flash-lite` です。精度を優先したい場合などは任意で `GEMINI_MODEL` を指定できます。
 
 スマホで試す場合は、PCとスマホを同じWi-Fiに繋ぎ、`npm run dev -- --hostname 0.0.0.0` で起動して `http://<PCのIPアドレス>:3000` にアクセスしてください。
 

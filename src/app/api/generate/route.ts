@@ -160,12 +160,12 @@ CEFRレベル: ${level}
 条件:
 - 上記の文法・構文を必ず使った問題にする
 - ${level} レベルに合った語彙で、実用的な日本語文にする
-- acceptedAnswers は代表的な正解バリエーションを最大5個に絞る
+- acceptedAnswers は代表的な正解バリエーションを最大4個に絞る
 - commonMistakes は1〜2個${reviewLine}`;
 
   try {
     const text = await generateGeminiText({
-      maxOutputTokens: 2048,
+      maxOutputTokens: 1536,
       responseSchema: QUESTION_RESPONSE_SCHEMA,
       systemInstruction: SYSTEM_PROMPT,
       prompt: userMessage,

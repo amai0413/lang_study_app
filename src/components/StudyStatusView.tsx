@@ -125,17 +125,17 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
   }, [languageFilter, levelFilter, mastery, words]);
 
   return (
-    <div className="min-h-full bg-zinc-50">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:py-10">
+    <div className="min-h-full bg-[#fbfaf6]">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">学習状況</h1>
-            <p className="text-xs text-zinc-500">単語と文法の記録を一覧できます</p>
+            <h1 className="text-2xl font-black text-zinc-950">学習状況</h1>
+            <p className="text-xs font-bold text-zinc-500">単語と文法の記録を一覧できます</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="min-h-10 w-fit rounded-lg px-3 text-sm font-semibold text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800"
+            className="min-h-10 w-fit rounded-lg px-3 text-sm font-black text-zinc-500 transition-colors hover:bg-white hover:text-emerald-700"
           >
             学習に戻る
           </button>
@@ -143,29 +143,29 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
 
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-xs font-medium text-zinc-400">学習単語</p>
-            <p className="mt-1 text-2xl font-bold text-zinc-900">{stats.learnedWords}</p>
+            <p className="text-xs font-bold text-zinc-400">学習単語</p>
+            <p className="mt-1 text-2xl font-black text-zinc-900">{stats.learnedWords}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-xs font-medium text-zinc-400">復習単語</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">{stats.reviewWords}</p>
+            <p className="text-xs font-bold text-zinc-400">復習単語</p>
+            <p className="mt-1 text-2xl font-black text-amber-700">{stats.reviewWords}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-xs font-medium text-zinc-400">文法の進捗</p>
-            <p className="mt-1 text-2xl font-bold text-zinc-900">
+            <p className="text-xs font-bold text-zinc-400">文法の進捗</p>
+            <p className="mt-1 text-2xl font-black text-zinc-900">
               {stats.attemptedGrammar}
               <span className="text-sm font-semibold text-zinc-400">/{stats.totalGrammar}</span>
             </p>
           </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-xs font-medium text-zinc-400">弱点文法</p>
-            <p className="mt-1 text-2xl font-bold text-rose-700">{stats.weakGrammar}</p>
+            <p className="text-xs font-bold text-zinc-400">弱点文法</p>
+            <p className="mt-1 text-2xl font-black text-rose-700">{stats.weakGrammar}</p>
           </div>
         </div>
 
         <section className="flex flex-col gap-3">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-200 p-1 sm:w-72">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-200 p-1 sm:w-72">
               {[
                 { value: "words", label: "単語" },
                 { value: "grammar", label: "文法" },
@@ -189,11 +189,11 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="検索"
-              className="min-h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+              className="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-500"
             />
           </div>
 
-          <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3">
+          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3">
             <div className="flex flex-wrap gap-2">
               {[
                 { value: "all", label: "すべて" },

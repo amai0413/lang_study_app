@@ -47,7 +47,7 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 | [単語] | [読み] | [品詞] | [意味] | [補足] |
 
 ## ③ あなたの回答について
-学習者の回答「[ユーザーの回答]」を引用し、どこが正しく、どこが間違っていたかを具体的に指摘する。2〜3段落に収める。
+学習者の回答「[ユーザーの回答]」を引用し、どこが正しく、どこが間違っていたかを具体的に指摘する。1〜2段落に収める。
 
 ## ④ 覚えておきたい構文
 **[文法パターン]**
@@ -57,7 +57,6 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 例：
 - [例文1]　[日本語訳]
 - [例文2]　[日本語訳]
-- [例文3]　[日本語訳]
 
 ## ⑤ 学習ポイントと復習
 - [キーワード] = [意味]
@@ -111,7 +110,8 @@ interface GradeBody {
 function normalizeSpanishExplanationMarkdown(markdown: unknown): unknown {
   if (typeof markdown !== "string") return markdown;
   return markdown
-    .replace(/\|\s*読み方\s*\|/g, "| 英語の意味 |")
+    .replace(/\|\s*読み方(?:（[^|]*）)?\s*\|/g, "| 英語の意味 |")
+    .replace(/\|\s*読み\s*\|/g, "| 英語の意味 |")
     .replace(/\|\s*\[読み\]\s*\|/g, "| [英語の意味] |");
 }
 
@@ -157,11 +157,11 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 
 単語欄の指示: ${readingInstruction}
 
-この回答を採点し、指定のJSON形式で返してください。解説③は必ず学習者の回答を引用して具体的に説明すること。`;
+この回答を採点し、指定のJSON形式で返してください。単語解説は最大6語に絞り、解説③は必ず学習者の回答を引用して具体的に説明すること。`;
 
   try {
     const text = await generateGeminiText({
-      maxOutputTokens: 4096,
+      maxOutputTokens: 3072,
       responseSchema: GRADE_RESPONSE_SCHEMA,
       systemInstruction: SYSTEM_PROMPT,
       prompt: userMessage,

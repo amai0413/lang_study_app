@@ -8,11 +8,12 @@ import { selectTarget, type QuizTarget } from "@/lib/selectTarget";
 import { recordMasteryAttempt } from "@/lib/masteryStore";
 import { recordWords, getWordStats } from "@/lib/wordStore";
 import { LANGUAGE_LABELS, TARGET_LANGUAGES } from "@/lib/languages";
+import { getLearningProgress, type LearningProgress } from "@/lib/progress";
 import QuestionCard from "@/components/QuestionCard";
 import AnswerInput from "@/components/AnswerInput";
 import ResultPanel from "@/components/ResultPanel";
 import ExplanationPanel from "@/components/ExplanationPanel";
-import LevelSelector from "@/components/LevelSelector";
+import ProgressMeter from "@/components/ProgressMeter";
 import StudyStatusView from "@/components/StudyStatusView";
 
 async function fetchQuestion(
@@ -50,7 +51,6 @@ async function fetchQuestion(
 
 export default function Home() {
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage | null>(null);
-  const [level, setLevel] = useState<Level>("A1");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
@@ -60,12 +60,16 @@ export default function Home() {
   const [gradeResult, setGradeResult] = useState<GradeResult | null>(null);
   const [isReview, setIsReview] = useState(false);
   const [showStudyStatus, setShowStudyStatus] = useState(false);
+  const [progress, setProgress] = useState<LearningProgress | null>(null);
   const [wordStats, setWordStats] = useState<{ learned: number; review: number }>({
     learned: 0,
     review: 0,
   });
 
-  const startQuestion = async (lang: TargetLanguage, lvl: Level) => {
+  const startQuestion = async (lang: TargetLanguage) => {
+    const nextProgress = getLearningProgress(lang);
+    const lvl = nextProgress.level;
+    setProgress(nextProgress);
     setIsGenerating(true);
     setGenerateError(null);
     setGradeError(null);
@@ -88,12 +92,7 @@ export default function Home() {
 
   const handleSelectLanguage = (lang: TargetLanguage) => {
     setTargetLanguage(lang);
-    startQuestion(lang, level);
-  };
-
-  const handleLevelChange = (nextLevel: Level) => {
-    setLevel(nextLevel);
-    if (targetLanguage) startQuestion(targetLanguage, nextLevel);
+    startQuestion(lang);
   };
 
   const handleJudge = async () => {
@@ -125,6 +124,7 @@ export default function Home() {
         recordWords(currentQuestion.targetLanguage, result.words, wasCorrect);
       }
       setWordStats(getWordStats(currentQuestion.targetLanguage));
+      setProgress(getLearningProgress(currentQuestion.targetLanguage));
     } catch (err) {
       setGradeError(err instanceof Error ? err.message : "採点に失敗しました。");
     } finally {
@@ -133,7 +133,7 @@ export default function Home() {
   };
 
   const handleNext = () => {
-    if (targetLanguage) startQuestion(targetLanguage, level);
+    if (targetLanguage) startQuestion(targetLanguage);
   };
 
   const handleChangeLanguage = () => {
@@ -143,18 +143,23 @@ export default function Home() {
     setUserInput("");
     setGenerateError(null);
     setGradeError(null);
+    setProgress(null);
     setIsGenerating(false);
     setIsGrading(false);
+  };
+
+  const handleCloseStudyStatus = () => {
+    setShowStudyStatus(false);
+    if (!targetLanguage) return;
+    setWordStats(getWordStats(targetLanguage));
+    setProgress(getLearningProgress(targetLanguage));
   };
 
   if (showStudyStatus) {
     return (
       <StudyStatusView
         initialLanguage={targetLanguage}
-        onClose={() => {
-          setShowStudyStatus(false);
-          if (targetLanguage) setWordStats(getWordStats(targetLanguage));
-        }}
+        onClose={handleCloseStudyStatus}
       />
     );
   }
@@ -162,24 +167,23 @@ export default function Home() {
   // ── 言語選択画面 ──
   if (!targetLanguage) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center bg-white px-6">
-        <div className="flex w-full max-w-sm flex-col items-center gap-10">
+      <div className="flex min-h-full flex-col items-center justify-center bg-[#fbfaf6] px-5 py-8">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold text-zinc-900">Grammar Trainer</h1>
-            <p className="text-sm text-zinc-500">学習する言語を選んでください</p>
-          </div>
-          <div className="flex w-full flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium text-zinc-400">難易度</p>
-              <LevelSelector value={level} onChange={setLevel} />
+            <div className="rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-black text-emerald-700">
+              A1 から自動スタート
             </div>
-            <div className="flex w-full flex-col gap-3">
+            <h1 className="text-4xl font-black text-zinc-950 sm:text-5xl">Grammar Trainer</h1>
+            <p className="text-sm font-bold text-zinc-500">学習する言語を選んでください</p>
+          </div>
+          <div className="flex w-full flex-col gap-3">
+            <div className="grid w-full gap-3 sm:grid-cols-3">
               {TARGET_LANGUAGES.map((lang) => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => handleSelectLanguage(lang)}
-                  className="min-h-16 w-full rounded-2xl border border-zinc-200 bg-white text-lg font-semibold text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 active:bg-zinc-100"
+                  className="min-h-28 w-full rounded-lg border border-zinc-200 bg-white px-4 text-xl font-black text-zinc-950 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 active:translate-y-0"
                 >
                   {LANGUAGE_LABELS[lang]}
                 </button>
@@ -188,7 +192,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setShowStudyStatus(true)}
-              className="min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100"
+              className="min-h-11 w-full rounded-lg border border-zinc-200 bg-white text-sm font-black text-zinc-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
             >
               学習状況を見る
             </button>
@@ -201,12 +205,15 @@ export default function Home() {
   // ── 初回ローディング画面 ──
   if (isGenerating && !currentQuestion) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center bg-white px-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-base font-medium text-zinc-700">
-            {LANGUAGE_LABELS[targetLanguage]}（{level}）の問題を生成中…
+      <div className="flex min-h-full flex-col items-center justify-center bg-[#fbfaf6] px-6">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-base font-black text-zinc-800">
+            {LANGUAGE_LABELS[targetLanguage]}（{progress?.level ?? "A1"}）の問題を生成中…
           </p>
-          <p className="text-xs text-zinc-400">少々お待ちください</p>
+          <div className="h-2 w-52 overflow-hidden rounded-full bg-zinc-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-emerald-400" />
+          </div>
+          <p className="text-xs font-bold text-zinc-400">少々お待ちください</p>
         </div>
       </div>
     );
@@ -215,18 +222,18 @@ export default function Home() {
   // ── 生成エラー画面 ──
   if (generateError && !currentQuestion) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center bg-white px-6">
-        <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-          <p className="text-base font-semibold text-zinc-900">問題を生成できませんでした</p>
-          <p className="text-sm text-rose-600">{generateError}</p>
+      <div className="flex min-h-full flex-col items-center justify-center bg-[#fbfaf6] px-6">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-lg border border-rose-100 bg-white p-6 text-center shadow-sm">
+          <p className="text-base font-black text-zinc-900">問題を生成できませんでした</p>
+          <p className="text-sm font-semibold text-rose-600">{generateError}</p>
           <button
             type="button"
-            onClick={() => startQuestion(targetLanguage, level)}
-            className="min-h-11 rounded-xl bg-zinc-900 px-6 text-sm font-semibold text-white"
+            onClick={() => startQuestion(targetLanguage)}
+            className="min-h-11 rounded-lg bg-zinc-900 px-6 text-sm font-black text-white"
           >
             再試行
           </button>
-          <button type="button" onClick={handleChangeLanguage} className="text-sm text-zinc-400">
+          <button type="button" onClick={handleChangeLanguage} className="text-sm font-bold text-zinc-400">
             言語選択に戻る
           </button>
         </div>
@@ -234,53 +241,68 @@ export default function Home() {
     );
   }
 
+  const isCompactMode = isGrading || Boolean(gradeResult);
+
   // ── クイズ画面 ──
   return (
-    <div className="min-h-full bg-zinc-50">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-full bg-[#fbfaf6]">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="grid gap-3 lg:grid-cols-[minmax(220px,0.75fr)_minmax(420px,1.25fr)_auto] lg:items-center">
           <div>
-            <h1 className="text-lg font-bold text-zinc-900">Grammar Trainer</h1>
-            <p className="text-xs text-zinc-500">
+            <h1 className="text-2xl font-black text-zinc-950">Grammar Trainer</h1>
+            <p className="text-xs font-bold text-zinc-500">
               {LANGUAGE_LABELS[targetLanguage]}・学習単語 {wordStats.learned}
               {wordStats.review > 0 ? `・復習 ${wordStats.review}` : ""}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1">
+
+          <ProgressMeter progress={progress} />
+
+          <div className="flex flex-wrap items-center gap-1 lg:justify-end">
             <button
               type="button"
               onClick={() => setShowStudyStatus(true)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800"
+              className="rounded-lg px-3 py-2 text-xs font-black text-zinc-500 transition-colors hover:bg-white hover:text-emerald-700"
             >
               学習状況
             </button>
             <button
               type="button"
               onClick={handleChangeLanguage}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+              className="rounded-lg px-3 py-2 text-xs font-black text-zinc-400 transition-colors hover:bg-white hover:text-zinc-700"
             >
               言語を変更
             </button>
           </div>
         </header>
 
-        <div className="lg:max-w-xl">
-          <LevelSelector value={level} onChange={handleLevelChange} disabled={isGenerating || isGrading} />
-        </div>
-
         {currentQuestion ? (
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-start">
-            <section className="flex min-w-0 flex-col gap-4">
+          <div
+            className={[
+              "transition-all duration-700 ease-out",
+              isCompactMode
+                ? "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)] lg:items-start"
+                : "mx-auto flex w-full max-w-4xl flex-col gap-4 pt-4 lg:pt-8",
+            ].join(" ")}
+          >
+            <section
+              className={[
+                "flex min-w-0 flex-col gap-4 transition-all duration-700 ease-out",
+                isCompactMode ? "lg:pt-0" : "lg:gap-5",
+              ].join(" ")}
+            >
               {isReview ? (
-                <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                  <span>🔁</span>
-                  <span>復習: 苦手な文法を出題しています</span>
+                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">
+                  <span className="rounded-md bg-white px-2 py-0.5 text-[10px] tracking-wide">REVIEW</span>
+                  <span>苦手な文法を出題しています</span>
                 </div>
               ) : null}
 
-              <QuestionCard question={currentQuestion} />
+              <QuestionCard question={currentQuestion} mode={isCompactMode ? "compact" : "hero"} />
 
-              <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
+              <div className="transition-all duration-700 ease-out">
+                <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
+              </div>
 
               {gradeResult ? <ResultPanel result={gradeResult} question={currentQuestion} /> : null}
 
@@ -290,26 +312,41 @@ export default function Home() {
                     type="button"
                     onClick={handleJudge}
                     disabled={userInput.trim().length === 0 || isGrading}
-                    className="min-h-12 w-full rounded-xl bg-zinc-900 text-base font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
                     {isGrading ? "採点中…" : "判定する"}
                   </button>
-                  {gradeError ? <p className="text-center text-xs text-rose-600">{gradeError}</p> : null}
+                  {gradeError ? <p className="text-center text-xs font-bold text-rose-600">{gradeError}</p> : null}
                 </>
               ) : null}
             </section>
 
-            {gradeResult ? (
-              <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6">
-                <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={isGenerating}
-                  className="min-h-12 w-full rounded-xl bg-zinc-900 text-base font-semibold text-white disabled:opacity-60"
-                >
-                  {isGenerating ? "AI が問題を生成中…" : "次の問題"}
-                </button>
+            {isCompactMode ? (
+              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
+                {isGrading && !gradeResult ? (
+                  <div className="rounded-lg border border-sky-100 bg-white p-5 shadow-sm">
+                    <p className="text-sm font-black text-sky-700">AI が採点しています</p>
+                    <div className="mt-4 flex flex-col gap-2">
+                      <div className="h-3 w-3/4 animate-pulse rounded-full bg-sky-100" />
+                      <div className="h-3 w-full animate-pulse rounded-full bg-emerald-100" />
+                      <div className="h-3 w-2/3 animate-pulse rounded-full bg-amber-100" />
+                    </div>
+                  </div>
+                ) : null}
+
+                {gradeResult ? (
+                  <>
+                    <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isGenerating}
+                      className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {isGenerating ? "AI が問題を生成中…" : "次の問題"}
+                    </button>
+                  </>
+                ) : null}
               </aside>
             ) : null}
           </div>
