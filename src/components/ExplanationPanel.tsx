@@ -129,16 +129,16 @@ export default function ExplanationPanel({ markdown }: { markdown?: string }) {
       {sections.length > 0 ? (
         <div className="mt-5 grid gap-3">
           {sections.map((section) => (
-            <details key={section.title} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-              <summary className="cursor-pointer text-xl font-black text-zinc-900">
+            <section key={section.title} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <h2 className="rounded-lg bg-white px-3 py-2 text-xl font-black text-zinc-900">
                 {section.title}
-              </summary>
-              <div className="mt-3 rounded-lg bg-white p-3">
+              </h2>
+              <div className="mt-3 rounded-lg bg-white p-4">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {section.body}
                 </ReactMarkdown>
               </div>
-            </details>
+            </section>
           ))}
         </div>
       ) : null}

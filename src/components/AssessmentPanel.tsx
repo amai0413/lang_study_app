@@ -42,36 +42,36 @@ export default function AssessmentPanel({ result }: { result: GradeResult }) {
                 </span>
               </div>
               <p className="mt-3 text-sm font-bold leading-relaxed">{item.detail}</p>
+              {key === "vocabulary" && (correctWords.length > 0 || reviewWords.length > 0) ? (
+                <div className="mt-4 grid gap-3">
+                  {correctWords.length > 0 ? (
+                    <div className="rounded-lg bg-white/70 p-3">
+                      <h3 className="text-xs font-black uppercase tracking-wide opacity-70">できている単語</h3>
+                      <p className="mt-2 text-sm font-black leading-relaxed">
+                        {correctWords.map((word) => word.surface).join("、")}
+                      </p>
+                    </div>
+                  ) : null}
+                  {reviewWords.length > 0 ? (
+                    <div className="rounded-lg bg-white/70 p-3">
+                      <h3 className="text-xs font-black uppercase tracking-wide opacity-70">復習する単語</h3>
+                      <div className="mt-2 grid gap-2">
+                        {reviewWords.slice(0, 5).map((word) => (
+                          <p key={word.surface} className="text-sm font-black leading-relaxed">
+                            {word.surface}
+                            {word.meaning ? ` = ${word.meaning}` : ""}
+                            {word.note ? `（${word.note}）` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
           );
         })}
       </div>
-      {correctWords.length > 0 || reviewWords.length > 0 ? (
-        <div className="mt-4 grid gap-3">
-          {correctWords.length > 0 ? (
-            <section className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-emerald-800">
-              <h3 className="text-sm font-black">できている単語</h3>
-              <p className="mt-2 text-sm font-bold leading-relaxed">
-                {correctWords.map((word) => word.surface).join("、")}
-              </p>
-            </section>
-          ) : null}
-          {reviewWords.length > 0 ? (
-            <section className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-amber-800">
-              <h3 className="text-sm font-black">復習する単語</h3>
-              <div className="mt-2 grid gap-2">
-                {reviewWords.slice(0, 5).map((word) => (
-                  <p key={word.surface} className="text-sm font-bold leading-relaxed">
-                    {word.surface}
-                    {word.meaning ? ` = ${word.meaning}` : ""}
-                    {word.note ? `（${word.note}）` : ""}
-                  </p>
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

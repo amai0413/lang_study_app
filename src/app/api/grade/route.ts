@@ -54,6 +54,11 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 
 意味：「[パターンの意味]」
 
+構文分解：
+| 役割 | 語句 | 意味 |
+| --- | --- | --- |
+| [役割] | [語句] | [意味] |
+
 例：
 - [例文1]　[日本語訳]
 - [例文2]　[日本語訳]
@@ -287,6 +292,7 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 - answerAssessment.detail は短すぎないように、それぞれ2〜3文で「何ができているか」「何を直すか」「回答中の具体的な語句」を含める
 - 記号は correct=◯、partial=△、incorrect=× に固定する
 - 「あなたの回答について」という見出しや内容は explanationMarkdown には書かない。回答評価は answerAssessment にだけ入れる
+- explanationMarkdown の「2. 覚えておきたい構文」には、必ず構文分解テーブルを入れて、文の部品が視覚的にわかるようにする
 
 この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、回答評価は answerAssessment の単語・文法・自然さに分けて具体的に説明すること。`;
 
