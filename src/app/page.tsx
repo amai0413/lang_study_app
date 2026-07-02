@@ -362,89 +362,93 @@ export default function Home() {
             className={[
               "transition-all duration-700 ease-out",
               isCompactMode
-                ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-start"
+                ? "flex flex-col gap-4"
                 : "mx-auto flex w-full max-w-4xl flex-col gap-4 pt-4 lg:pt-8",
             ].join(" ")}
           >
-            <section
-              className={[
-                "flex min-w-0 flex-col gap-4 transition-all duration-700 ease-out",
-                isCompactMode ? "lg:pt-0" : "lg:gap-5",
-              ].join(" ")}
+            <div
+              className={
+                isCompactMode
+                  ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-start"
+                  : "contents"
+              }
             >
-              {isReview || reviewWord ? (
-                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">
-                  <span className="rounded-md bg-white px-2 py-0.5 text-[10px] tracking-wide">REVIEW</span>
-                  <span>
-                    {[
-                      isReview ? "苦手な文法" : null,
-                      reviewWord ? `復習単語「${reviewWord}」` : null,
-                    ]
-                      .filter(Boolean)
-                      .join("・")}
-                    を出題しています
-                  </span>
-                </div>
-              ) : null}
-
-              <AnswerTimer
-                key={currentQuestion.id}
-                level={currentQuestion.level}
-                paused={isGrading || Boolean(gradeResult)}
-                onExpire={handleTimerExpire}
-              />
-
-              <QuestionCard question={currentQuestion} mode={isCompactMode ? "compact" : "hero"} />
-
-              <div className="transition-all duration-700 ease-out">
-                <AnswerInput
-                  value={userInput}
-                  onChange={setUserInput}
-                  language={currentQuestion.targetLanguage}
-                  disabled={!!gradeResult || isGrading}
-                />
-              </div>
-
-              {gradeResult ? <ResultPanel result={gradeResult} question={currentQuestion} /> : null}
-
-              {!gradeResult ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleJudge()}
-                    disabled={(userInput.trim().length === 0 && !timeExpired) || isGrading}
-                    className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
-                  >
-                    {isGrading ? "採点中…" : timeExpired ? "時間切れでも判定する" : "判定する"}
-                  </button>
-                  {gradeError ? <p className="text-center text-xs font-bold text-rose-600">{gradeError}</p> : null}
-                </>
-              ) : null}
-            </section>
-
-            {isCompactMode ? (
-              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 self-stretch opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
-                {isGrading && !gradeResult ? (
-                  <div className="rounded-lg border border-sky-100 bg-white p-5 shadow-sm">
-                    <p className="text-sm font-black text-sky-700">AI が採点しています</p>
-                    <div className="mt-4 flex flex-col gap-2">
-                      <div className="h-3 w-3/4 animate-pulse rounded-full bg-sky-100" />
-                      <div className="h-3 w-full animate-pulse rounded-full bg-emerald-100" />
-                      <div className="h-3 w-2/3 animate-pulse rounded-full bg-amber-100" />
-                    </div>
+              <section
+                className={[
+                  "flex min-w-0 flex-col gap-4 transition-all duration-700 ease-out",
+                  isCompactMode ? "lg:pt-0" : "lg:gap-5",
+                ].join(" ")}
+              >
+                {isReview || reviewWord ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">
+                    <span className="rounded-md bg-white px-2 py-0.5 text-[10px] tracking-wide">REVIEW</span>
+                    <span>
+                      {[
+                        isReview ? "苦手な文法" : null,
+                        reviewWord ? `復習単語「${reviewWord}」` : null,
+                      ]
+                        .filter(Boolean)
+                        .join("・")}
+                      を出題しています
+                    </span>
                   </div>
                 ) : null}
 
-                {gradeResult ? (
+                <AnswerTimer
+                  key={currentQuestion.id}
+                  level={currentQuestion.level}
+                  paused={isGrading || Boolean(gradeResult)}
+                  onExpire={handleTimerExpire}
+                />
+
+                <QuestionCard question={currentQuestion} mode={isCompactMode ? "compact" : "hero"} />
+
+                <div className="transition-all duration-700 ease-out">
+                  <AnswerInput
+                    value={userInput}
+                    onChange={setUserInput}
+                    language={currentQuestion.targetLanguage}
+                    disabled={!!gradeResult || isGrading}
+                  />
+                </div>
+
+                {gradeResult ? <ResultPanel result={gradeResult} question={currentQuestion} /> : null}
+
+                {!gradeResult ? (
                   <>
-                    <AssessmentPanel result={gradeResult} />
+                    <button
+                      type="button"
+                      onClick={() => handleJudge()}
+                      disabled={(userInput.trim().length === 0 && !timeExpired) || isGrading}
+                      className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    >
+                      {isGrading ? "採点中…" : timeExpired ? "時間切れでも判定する" : "判定する"}
+                    </button>
+                    {gradeError ? <p className="text-center text-xs font-bold text-rose-600">{gradeError}</p> : null}
                   </>
                 ) : null}
-              </aside>
-            ) : null}
+              </section>
+
+              {isCompactMode ? (
+                <aside className="flex min-w-0 translate-y-0 flex-col gap-4 self-start opacity-100 transition-all duration-700 ease-out">
+                  {isGrading && !gradeResult ? (
+                    <div className="rounded-lg border border-sky-100 bg-white p-5 shadow-sm">
+                      <p className="text-sm font-black text-sky-700">AI が採点しています</p>
+                      <div className="mt-4 flex flex-col gap-2">
+                        <div className="h-3 w-3/4 animate-pulse rounded-full bg-sky-100" />
+                        <div className="h-3 w-full animate-pulse rounded-full bg-emerald-100" />
+                        <div className="h-3 w-2/3 animate-pulse rounded-full bg-amber-100" />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {gradeResult ? <AssessmentPanel result={gradeResult} /> : null}
+                </aside>
+              ) : null}
+            </div>
 
             {gradeResult ? (
-              <section className="flex flex-col gap-4 lg:col-span-2">
+              <section className="flex flex-col gap-4">
                 <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
                 <button
                   type="button"
