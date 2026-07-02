@@ -26,6 +26,7 @@ function splitFoldableSections(markdown: string): {
   let skippedSection = "";
 
   for (const line of lines) {
+    if (line.trim() === "# 文法解説") continue;
     if (line.startsWith("## ")) {
       skippedSection =
         line.startsWith("## 例文") ||

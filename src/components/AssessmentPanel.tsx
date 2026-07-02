@@ -18,21 +18,21 @@ export default function AssessmentPanel({ result }: { result: GradeResult }) {
   if (!assessment) return null;
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Your Answer</p>
-      <div className="mt-3 grid gap-3">
+    <div className="h-full rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-black uppercase tracking-wide text-zinc-400">Your Answer</p>
+      <div className="mt-4 grid gap-4">
         {(Object.keys(sectionLabels) as Array<keyof AnswerAssessment>).map((key) => {
           const item = assessment[key];
           const style = itemStyles[item.status];
           return (
             <section key={key} className={`rounded-lg border p-4 ${style.className}`}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-black">{sectionLabels[key]}</h2>
-                <span className="rounded-full bg-white/70 px-3 py-1 text-lg font-black">
+                <h2 className="text-xl font-black">{sectionLabels[key]}</h2>
+                <span className="rounded-full bg-white/70 px-3 py-1 text-xl font-black">
                   {style.mark}
                 </span>
               </div>
-              <p className="mt-2 text-sm font-bold leading-relaxed">{item.detail}</p>
+              <p className="mt-3 text-sm font-bold leading-relaxed">{item.detail}</p>
             </section>
           );
         })}

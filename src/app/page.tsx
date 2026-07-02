@@ -362,7 +362,7 @@ export default function Home() {
             className={[
               "transition-all duration-700 ease-out",
               isCompactMode
-                ? "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)] lg:items-start"
+                ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-start"
                 : "mx-auto flex w-full max-w-4xl flex-col gap-4 pt-4 lg:pt-8",
             ].join(" ")}
           >
@@ -423,7 +423,7 @@ export default function Home() {
             </section>
 
             {isCompactMode ? (
-              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 self-start opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
+              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 self-stretch opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
                 {isGrading && !gradeResult ? (
                   <div className="rounded-lg border border-sky-100 bg-white p-5 shadow-sm">
                     <p className="text-sm font-black text-sky-700">AI が採点しています</p>

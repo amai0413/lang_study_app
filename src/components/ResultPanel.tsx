@@ -116,21 +116,17 @@ export default function ResultPanel({
           />
         </div>
         <p className="mt-1 text-xs text-zinc-500">文法ポイント: {question.grammarPoint}</p>
-        {notes.natural || notes.literal ? (
-          <div className="mt-3 grid gap-2 rounded-lg bg-white/60 p-3">
-            {notes.natural ? (
-              <p className="text-sm font-bold text-zinc-700">
-                <span className="text-zinc-400">自然な訳: </span>
-                {notes.natural}
-              </p>
-            ) : null}
-            {notes.literal ? (
-              <p className="border-l-2 border-zinc-300 pl-3 text-sm font-semibold text-zinc-500">
-                直訳: {notes.literal}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="mt-3 grid gap-2 rounded-lg bg-white/60 p-3">
+          <p className="text-sm font-bold text-zinc-700">
+            <span className="text-zinc-400">日本語訳: </span>
+            {notes.natural || question.japanesePrompt}
+          </p>
+          {notes.literal ? (
+            <p className="border-l-2 border-zinc-300 pl-3 text-sm font-semibold text-zinc-500">
+              直訳: {notes.literal}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );
