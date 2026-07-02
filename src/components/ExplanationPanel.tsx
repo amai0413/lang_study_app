@@ -23,14 +23,29 @@ function splitFoldableSections(markdown: string): {
   const sections: Array<{ title: string; body: string[] }> = [];
   const lead: string[] = [];
   let current: { title: string; body: string[] } | null = null;
+  let skippedSection = "";
 
   for (const line of lines) {
+    if (line.startsWith("## ")) {
+      skippedSection =
+        line.startsWith("## 例文") ||
+        line.startsWith("## 模範解答の補足") ||
+        line.startsWith("## あなたの回答について")
+          ? line
+          : "";
+      if (skippedSection) {
+        current = null;
+        continue;
+      }
+    }
     const match = line.match(/^##\s+(1\.|2\.|3\.)\s+(.+)$/);
     if (match) {
+      skippedSection = "";
       current = { title: `${match[1]} ${match[2]}`, body: [] };
       sections.push(current);
       continue;
     }
+    if (skippedSection) continue;
     if (current) {
       current.body.push(line);
     } else {

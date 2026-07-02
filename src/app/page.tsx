@@ -423,7 +423,7 @@ export default function Home() {
             </section>
 
             {isCompactMode ? (
-              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
+              <aside className="flex min-w-0 translate-y-0 flex-col gap-4 self-start opacity-100 transition-all duration-700 ease-out lg:sticky lg:top-5">
                 {isGrading && !gradeResult ? (
                   <div className="rounded-lg border border-sky-100 bg-white p-5 shadow-sm">
                     <p className="text-sm font-black text-sky-700">AI が採点しています</p>

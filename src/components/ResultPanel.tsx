@@ -39,6 +39,28 @@ function wordInfo(result: GradeResult, token: string) {
   return result.words?.find((word) => word.surface === clean || clean.includes(word.surface));
 }
 
+function modelAnswerNotes(markdown: string): { natural?: string; literal?: string } {
+  const lines = markdown.split("\n");
+  let inSection = false;
+  const notes: { natural?: string; literal?: string } = {};
+
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      inSection = line.startsWith("## 例文") || line.startsWith("## 模範解答の補足");
+      continue;
+    }
+    if (!inSection) continue;
+    if (line.startsWith("**自然な訳：**")) {
+      notes.natural = line.replace("**自然な訳：**", "").trim();
+    }
+    if (line.startsWith("> 直訳:") || line.startsWith("> 直訳：")) {
+      notes.literal = line.replace(/^>\s*直訳[:：]\s*/, "").trim();
+    }
+  }
+
+  return notes;
+}
+
 export default function ResultPanel({
   result,
   question,
@@ -47,6 +69,7 @@ export default function ResultPanel({
   question: Question;
 }) {
   const style = statusStyles[result.status];
+  const notes = modelAnswerNotes(result.explanationMarkdown);
 
   return (
     <div className={`flex flex-col gap-2 rounded-lg border p-4 ${style.className}`}>
@@ -93,6 +116,21 @@ export default function ResultPanel({
           />
         </div>
         <p className="mt-1 text-xs text-zinc-500">文法ポイント: {question.grammarPoint}</p>
+        {notes.natural || notes.literal ? (
+          <div className="mt-3 grid gap-2 rounded-lg bg-white/60 p-3">
+            {notes.natural ? (
+              <p className="text-sm font-bold text-zinc-700">
+                <span className="text-zinc-400">自然な訳: </span>
+                {notes.natural}
+              </p>
+            ) : null}
+            {notes.literal ? (
+              <p className="border-l-2 border-zinc-300 pl-3 text-sm font-semibold text-zinc-500">
+                直訳: {notes.literal}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -40,24 +40,9 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 
 # 文法解説
 
-## 例文
-**[目標言語の自然な正解文]**
+## 模範解答の補足
 **自然な訳：** [自然な意味]
 > 直訳：[語順通りの直訳]
-
-## あなたの回答について
-
-### 単語
-**[◯/△/×]**
-[単語面の具体的評価。answerAssessment.vocabulary.detail と同じ内容]
-
-### 文法
-**[◯/△/×]**
-[文法面の具体的評価。answerAssessment.grammar.detail と同じ内容]
-
-### 自然さ
-**[◯/△/×]**
-[自然さの具体的評価。answerAssessment.naturalness.detail と同じ内容]
 
 ## 1. 単語解説
 | 単語 | 読み方 | 品詞 | 意味 | 補足 |
@@ -185,7 +170,7 @@ function normalizeChineseExplanationMarkdown(markdown: unknown): unknown {
     .map((line) => {
       if (line.startsWith("## ")) section = line;
 
-      if (section === "## 例文" && line.startsWith("**") && !line.startsWith("**自然な訳")) {
+      if (section === "## 模範解答の補足" && line.startsWith("**") && !line.startsWith("**自然な訳")) {
         return toTraditionalChinese(line);
       }
 
@@ -298,10 +283,11 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 - 意味が少しずれている近い単語・派生語は correctness=partial にする
 - 単語を少し並べただけで、問題の中心語彙が不足している場合は answerAssessment.vocabulary.status を incorrect にする
 - 例: 日本語文「明日、早く起きなければなりません。」に対して「मैं कल」だけなら、中心語彙「जल्दी」「उठना」と義務表現が欠けるため vocabulary は incorrect。words には जल्दी / उठना を incorrect として含める
-- answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く。explanationMarkdown の「あなたの回答について」にも同じ評価を ◯/△/× 付きで写す
+- answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く
 - 記号は correct=◯、partial=△、incorrect=× に固定する
+- 「あなたの回答について」という見出しや内容は explanationMarkdown には書かない。回答評価は answerAssessment にだけ入れる
 
-この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、「あなたの回答について」は必ず単語・文法・自然さに分けて具体的に説明すること。`;
+この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、回答評価は answerAssessment の単語・文法・自然さに分けて具体的に説明すること。`;
 
   try {
     const text = await generateGeminiText({

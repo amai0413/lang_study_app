@@ -7,6 +7,33 @@ interface SpeakButtonProps {
   disabled?: boolean;
 }
 
+function voiceScore(voice: SpeechSynthesisVoice, lang: string): number {
+  const voiceLang = voice.lang.toLowerCase();
+  const target = lang.toLowerCase();
+  const baseLang = target.split("-")[0];
+  const name = voice.name.toLowerCase();
+  let score = 0;
+  if (voiceLang === target) score += 80;
+  if (voiceLang.startsWith(`${baseLang}-`)) score += 45;
+  if (name.includes("google")) score += 24;
+  if (name.includes("microsoft")) score += 22;
+  if (name.includes("apple")) score += 18;
+  if (name.includes("premium") || name.includes("enhanced") || name.includes("neural")) score += 18;
+  if (name.includes("mei-jia") || name.includes("ting-ting") || name.includes("sin-ji")) score += 20;
+  if (name.includes("monica") || name.includes("paulina") || name.includes("jorge")) score += 16;
+  if (name.includes("lekha") || name.includes("hindi")) score += 16;
+  if (voice.localService) score += 4;
+  if (voice.default) score += 2;
+  return score;
+}
+
+function bestVoice(lang: string): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices();
+  return voices
+    .filter((voice) => voice.lang.toLowerCase().startsWith(lang.toLowerCase().split("-")[0]))
+    .sort((a, b) => voiceScore(b, lang) - voiceScore(a, lang))[0];
+}
+
 export default function SpeakButton({ text, lang, label = "音声", disabled }: SpeakButtonProps) {
   const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -15,7 +42,9 @@ export default function SpeakButton({ text, lang, label = "音声", disabled }: 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = 0.92;
+    utterance.voice = bestVoice(lang) ?? null;
+    utterance.rate = 0.88;
+    utterance.pitch = 1.04;
     window.speechSynthesis.speak(utterance);
   };
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateGeminiContent, hasGeminiApiKey } from "@/lib/gemini";
 import { LANGUAGE_LABELS, isTargetLanguage, targetLanguageListLabel } from "@/lib/languages";
+import { toTraditionalChinese } from "@/lib/textNormalize";
 
 export async function POST(request: NextRequest) {
   if (!hasGeminiApiKey()) {
@@ -33,7 +34,10 @@ export async function POST(request: NextRequest) {
         "あなたは語学学習アプリの音声認識エンジンです。音声を指定言語の文字に正確に書き起こします。説明や翻訳は不要です。",
       parts: [
         {
-          text: `${LANGUAGE_LABELS[targetLanguage]}の学習者音声を、その言語の文字だけで書き起こしてください。句読点は自然に最小限で入れてください。`,
+          text:
+            targetLanguage === "zh"
+              ? "中国語の学習者音声を繁体字だけで書き起こしてください。簡体字は使わないでください。句読点は自然に最小限で入れてください。"
+              : `${LANGUAGE_LABELS[targetLanguage]}の学習者音声を、その言語の文字だけで書き起こしてください。句読点は自然に最小限で入れてください。`,
         },
         {
           inlineData: {
@@ -47,7 +51,8 @@ export async function POST(request: NextRequest) {
       temperature: 0,
     });
 
-    return NextResponse.json({ transcript: text.trim() });
+    const transcript = targetLanguage === "zh" ? toTraditionalChinese(text.trim()) : text.trim();
+    return NextResponse.json({ transcript });
   } catch (error) {
     console.error("[/api/transcribe]", error);
     return NextResponse.json({ error: "音声の文字起こしに失敗しました。" }, { status: 500 });
