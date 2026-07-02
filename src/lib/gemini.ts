@@ -1,5 +1,6 @@
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview";
 
 interface GeminiTextOptions {
   systemInstruction: string;
@@ -25,6 +26,26 @@ interface GeminiResponse {
   };
 }
 
+interface GeminiSpeechResponse {
+  output_audio?: {
+    data?: string;
+  };
+  outputAudio?: {
+    data?: string;
+  };
+  steps?: Array<{
+    content?: Array<{
+      mime_type?: string;
+      mimeType?: string;
+      data?: string;
+    }>;
+  }>;
+  error?: {
+    message?: string;
+    status?: string;
+  };
+}
+
 interface GeminiPart {
   text?: string;
   inlineData?: {
@@ -36,6 +57,10 @@ interface GeminiPart {
 function geminiModelPath(): string {
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
   return model.startsWith("models/") ? model : `models/${model}`;
+}
+
+function geminiTtsModelName(): string {
+  return process.env.GEMINI_TTS_MODEL?.trim() || DEFAULT_GEMINI_TTS_MODEL;
 }
 
 export function hasGeminiApiKey(): boolean {
@@ -116,4 +141,53 @@ export async function generateGeminiContent({
   }
 
   return text;
+}
+
+export async function generateGeminiSpeech({
+  prompt,
+  voice,
+}: {
+  prompt: string;
+  voice: string;
+}): Promise<Buffer> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません。");
+
+  const response = await fetch(`${GEMINI_API_BASE}/interactions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      model: geminiTtsModelName(),
+      input: prompt,
+      response_format: {
+        type: "audio",
+      },
+      generation_config: {
+        speech_config: [
+          {
+            voice,
+          },
+        ],
+      },
+    }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as GeminiSpeechResponse;
+
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? `Gemini TTS request failed (${response.status})`);
+  }
+
+  const stepAudio = data.steps
+    ?.flatMap((step) => step.content ?? [])
+    .find((content) => (content.mime_type ?? content.mimeType ?? "").startsWith("audio/"))?.data;
+  const base64Audio = data.output_audio?.data ?? data.outputAudio?.data ?? stepAudio;
+  if (!base64Audio) {
+    throw new Error("Gemini TTS response was empty.");
+  }
+
+  return Buffer.from(base64Audio, "base64");
 }

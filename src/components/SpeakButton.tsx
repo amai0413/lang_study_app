@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface SpeakButtonProps {
   text: string;
@@ -37,6 +37,11 @@ function bestVoice(lang: string, voices: SpeechSynthesisVoice[]): SpeechSynthesi
 
 export default function SpeakButton({ text, lang, label = "音声", disabled }: SpeakButtonProps) {
   const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
+  const canPlayAudio = typeof window !== "undefined" && "Audio" in window;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(() =>
     typeof window !== "undefined" && "speechSynthesis" in window
       ? window.speechSynthesis.getVoices()
@@ -55,8 +60,25 @@ export default function SpeakButton({ text, lang, label = "音声", disabled }: 
     };
   }, [canSpeak]);
 
-  const handleSpeak = () => {
-    if (!canSpeak || disabled || !text.trim()) return;
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
+
+  const stopGeneratedAudio = () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
+  const playBrowserSpeech = () => {
+    if (!canSpeak || disabled || !text.trim()) return false;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
@@ -64,25 +86,65 @@ export default function SpeakButton({ text, lang, label = "音声", disabled }: 
     utterance.rate = 0.88;
     utterance.pitch = 1.04;
     window.speechSynthesis.speak(utterance);
+    return true;
   };
+
+  const handleSpeak = async () => {
+    if (disabled || isGenerating || !text.trim()) return;
+    stopGeneratedAudio();
+    if (canSpeak) window.speechSynthesis.cancel();
+
+    if (!canPlayAudio) {
+      playBrowserSpeech();
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/speak", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (!response.ok) throw new Error(`TTS request failed (${response.status})`);
+
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      objectUrlRef.current = audioUrl;
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = stopGeneratedAudio;
+      audio.onerror = stopGeneratedAudio;
+      setIsGenerating(false);
+      setIsPlaying(true);
+      await audio.play();
+    } catch (error) {
+      console.warn("[SpeakButton] Gemini TTS fallback:", error);
+      setIsGenerating(false);
+      stopGeneratedAudio();
+      playBrowserSpeech();
+    }
+  };
+
+  const statusLabel = isGenerating ? "生成中" : isPlaying ? "再生中" : label;
+  const title = isGenerating
+    ? "自然音声を生成しています"
+    : "Geminiの自然音声で再生します。失敗した場合だけブラウザ音声を使います。";
 
   return (
     <button
       type="button"
       onClick={handleSpeak}
-      disabled={disabled || !canSpeak || !text.trim()}
+      disabled={disabled || isGenerating || (!canPlayAudio && !canSpeak) || !text.trim()}
       className="inline-flex min-h-9 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 text-xs font-black text-zinc-600 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
       aria-label={label}
-      title={
-        canSpeak
-          ? selectedVoice
-            ? `${label}: ${selectedVoice.name}`
-            : `${label}: 対象言語の音声が見つからないためデフォルト音声を使います`
-          : "このブラウザでは読み上げに対応していません"
-      }
+      title={title}
     >
       <span className="text-base leading-none">♪</span>
-      <span className="ml-1 hidden sm:inline">{label}</span>
+      <span className="ml-1 hidden sm:inline">{statusLabel}</span>
     </button>
   );
 }
