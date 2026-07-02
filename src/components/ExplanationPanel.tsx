@@ -141,6 +141,53 @@ const markdownComponents: Components = {
   code: (props) => <code className="font-mono" {...props} />,
 };
 
+const patternPracticeComponents: Components = {
+  ...markdownComponents,
+  p: (props) => <p className="mt-3 text-base leading-relaxed text-zinc-700" {...props} />,
+  strong: ({ children, ...props }) => {
+    const text = childText(children).trim();
+    if (markStyles[text]) {
+      return (
+        <strong
+          className={`inline-flex min-w-11 items-center justify-center rounded-full border px-3 py-1 text-xl font-black ${markStyles[text]}`}
+          {...props}
+        >
+          {children}
+        </strong>
+      );
+    }
+    return (
+      <strong
+        className="mr-2 inline-flex rounded-full bg-sky-100 px-3 py-1 text-sm font-black text-sky-800"
+        {...props}
+      >
+        {children}
+      </strong>
+    );
+  },
+  ul: (props) => (
+    <ul className="mt-3 grid gap-2 text-base text-zinc-700 sm:grid-cols-2" {...props} />
+  ),
+  li: (props) => (
+    <li
+      className="list-none rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2 font-bold leading-relaxed text-zinc-700"
+      {...props}
+    />
+  ),
+  table: (props) => (
+    <div className="mt-4 overflow-x-auto rounded-lg border border-indigo-100 bg-white">
+      <table className="w-full border-collapse text-sm" {...props} />
+    </div>
+  ),
+  thead: (props) => <thead className="bg-indigo-50" {...props} />,
+  th: (props) => (
+    <th className="border-b border-indigo-100 px-3 py-2 text-left font-black text-indigo-900" {...props} />
+  ),
+  td: (props) => (
+    <td className="border-t border-indigo-50 px-3 py-3 align-top font-bold text-zinc-700" {...props} />
+  ),
+};
+
 export default function ExplanationPanel({ markdown }: { markdown?: string }) {
   if (!markdown) return null;
   const { lead, sections } = splitFoldableSections(markdown);
@@ -162,6 +209,9 @@ export default function ExplanationPanel({ markdown }: { markdown?: string }) {
               <div className="mt-3 rounded-lg bg-white p-4">
                 {section.title.includes("単語解説") ? (
                   <WordExplanation body={section.body} />
+                ) : section.title.includes("そのまま使える型") ||
+                  section.title.includes("覚えておきたい構文") ? (
+                  <PatternPractice body={section.body} />
                 ) : (
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                     {section.body}
@@ -172,6 +222,16 @@ export default function ExplanationPanel({ markdown }: { markdown?: string }) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PatternPractice({ body }: { body: string }) {
+  return (
+    <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={patternPracticeComponents}>
+        {body}
+      </ReactMarkdown>
     </div>
   );
 }
