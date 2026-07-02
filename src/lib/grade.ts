@@ -47,6 +47,7 @@ export async function fetchGrade(question: Question, userAnswer: string): Promis
       japanesePrompt: question.japanesePrompt,
       strictAnswer: question.strictAnswer,
       acceptedAnswers: question.acceptedAnswers,
+      requiredKeywords: question.requiredKeywords,
       grammarPoint: question.grammarPoint,
       userAnswer,
     }),

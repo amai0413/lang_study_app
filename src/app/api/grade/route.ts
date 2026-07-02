@@ -42,20 +42,29 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 
 ## 例文
 **[目標言語の自然な正解文]**
-
-## ① 日本語訳
 **自然な訳：** [自然な意味]
 > 直訳：[語順通りの直訳]
 
-## ② 単語解説
+## あなたの回答について
+
+### 単語
+**[◯/△/×]**
+[単語面の具体的評価。answerAssessment.vocabulary.detail と同じ内容]
+
+### 文法
+**[◯/△/×]**
+[文法面の具体的評価。answerAssessment.grammar.detail と同じ内容]
+
+### 自然さ
+**[◯/△/×]**
+[自然さの具体的評価。answerAssessment.naturalness.detail と同じ内容]
+
+## 1. 単語解説
 | 単語 | 読み方 | 品詞 | 意味 | 補足 |
 | --- | --- | --- | --- | --- |
 | [単語] | [読み] | [品詞] | [意味] | [補足] |
 
-## ③ あなたの回答について
-学習者の回答「[ユーザーの回答]」を引用し、どこが正しく、どこが間違っていたかを具体的に指摘する。1〜2段落に収める。
-
-## ④ 覚えておきたい構文
+## 2. 覚えておきたい構文
 **[文法パターン]**
 
 意味：「[パターンの意味]」
@@ -64,7 +73,7 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 - [例文1]　[日本語訳]
 - [例文2]　[日本語訳]
 
-## ⑤ 学習ポイントと復習
+## 3. 学習ポイントと復習
 - [キーワード] = [意味]
 - [重要な文法ポイント]
 - 今回の回答を踏まえ、特に復習すべき点を1〜2個挙げる`;
@@ -155,6 +164,7 @@ interface GradeBody {
   japanesePrompt?: string;
   strictAnswer?: string;
   acceptedAnswers?: string[];
+  requiredKeywords?: string[];
   grammarPoint?: string;
   userAnswer?: string;
 }
@@ -175,11 +185,11 @@ function normalizeChineseExplanationMarkdown(markdown: unknown): unknown {
     .map((line) => {
       if (line.startsWith("## ")) section = line;
 
-      if (section === "## 例文" && line.startsWith("**")) {
+      if (section === "## 例文" && line.startsWith("**") && !line.startsWith("**自然な訳")) {
         return toTraditionalChinese(line);
       }
 
-      if (section === "## ② 単語解説" && line.startsWith("|")) {
+      if (section.includes("単語解説") && line.startsWith("|")) {
         const cells = line.split("|");
         const firstCell = cells[1]?.trim();
         if (!firstCell || firstCell === "---" || firstCell === "単語") return line;
@@ -187,7 +197,7 @@ function normalizeChineseExplanationMarkdown(markdown: unknown): unknown {
         return cells.join("|");
       }
 
-      if (section === "## ④ 覚えておきたい構文") {
+      if (section.includes("覚えておきたい構文")) {
         if (line.startsWith("**")) return toTraditionalChinese(line);
         if (line.startsWith("- ")) {
           const separator = line.indexOf("　");
@@ -238,7 +248,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "リクエストの解析に失敗しました。" }, { status: 400 });
   }
 
-  const { targetLanguage, level, japanesePrompt, strictAnswer, acceptedAnswers, grammarPoint, userAnswer } = body;
+  const {
+    targetLanguage,
+    level,
+    japanesePrompt,
+    strictAnswer,
+    acceptedAnswers,
+    requiredKeywords,
+    grammarPoint,
+    userAnswer,
+  } = body;
   if (!targetLanguage || !japanesePrompt || !strictAnswer || !userAnswer) {
     return NextResponse.json({ error: "必須フィールドが不足しています。" }, { status: 400 });
   }
@@ -264,6 +283,7 @@ export async function POST(request: NextRequest) {
 日本語文: ${japanesePrompt}
 模範解答: ${strictAnswer}
 ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join("、")}` : ""}
+重要キーワード: ${requiredKeywords?.length ? requiredKeywords.join("、") : "（指定なし）"}
 文法パターン: ${grammarPoint ?? "（指定なし）"}
 
 学習者の回答: ${userAnswer}
@@ -271,13 +291,17 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 単語欄の指示: ${readingInstruction}
 
 単語記憶判定の指示:
-- words は模範解答の重要語と、学習者の回答に含まれる重要語を最大8語まで入れる
-- remembered は「学習者がその単語を正しい意味・正しい形で使えたか」で判定する
-- 全体の文が incorrect でも、正しく使えている単語は remembered=true / correctness=correct にする
-- 全体の文が correct/acceptable でも、単語選択・綴り・文字・語形が不自然または誤りなら remembered=false / correctness=incorrect または partial にする
-- answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く
+- words は重要キーワードと模範解答の中心語彙を最優先し、最大8語まで入れる。代名詞・助詞・簡単な時の副詞だけで埋めない
+- 学習者が中心語彙を省略した場合も、その中心語彙を words に入れて remembered=false / correctness=incorrect にする
+- remembered は「その問題で必要な中心語彙を、正しい意味で知っていたか」で判定する
+- 時制・活用・助詞・語順など文法だけが間違っていても、中心語彙を正しい意味で使えていれば単語は remembered=true / correctness=correct にする
+- 意味が少しずれている近い単語・派生語は correctness=partial にする
+- 単語を少し並べただけで、問題の中心語彙が不足している場合は answerAssessment.vocabulary.status を incorrect にする
+- 例: 日本語文「明日、早く起きなければなりません。」に対して「मैं कल」だけなら、中心語彙「जल्दी」「उठना」と義務表現が欠けるため vocabulary は incorrect。words には जल्दी / उठना を incorrect として含める
+- answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く。explanationMarkdown の「あなたの回答について」にも同じ評価を ◯/△/× 付きで写す
+- 記号は correct=◯、partial=△、incorrect=× に固定する
 
-この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、解説③は必ず学習者の回答を引用して具体的に説明すること。`;
+この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、「あなたの回答について」は必ず単語・文法・自然さに分けて具体的に説明すること。`;
 
   try {
     const text = await generateGeminiText({

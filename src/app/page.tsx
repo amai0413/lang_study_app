@@ -101,12 +101,15 @@ export default function Home() {
     startQuestion(lang);
   };
 
-  const handleJudge = async () => {
-    if (!currentQuestion || userInput.trim().length === 0) return;
+  const handleJudge = useCallback(async (answerOverride?: string) => {
+    if (!currentQuestion || isGrading || gradeResult) return;
+    const submittedAnswer = (answerOverride ?? userInput).trim();
+    if (submittedAnswer.length === 0) return;
     setIsGrading(true);
     setGradeError(null);
+    if (submittedAnswer !== userInput) setUserInput(submittedAnswer);
     try {
-      const result = await fetchGrade(currentQuestion, userInput);
+      const result = await fetchGrade(currentQuestion, submittedAnswer);
       setGradeResult(result);
 
       const wasCorrect = result.status === "correct" || result.status === "acceptable";
@@ -116,7 +119,7 @@ export default function Home() {
       appendHistory(history, {
         questionId: currentQuestion.id,
         targetLanguage: currentQuestion.targetLanguage,
-        userInput,
+        userInput: submittedAnswer,
         result: result.status === "acceptable" ? "correct" : result.status,
         timestamp: new Date().toISOString(),
       });
@@ -136,11 +139,12 @@ export default function Home() {
     } finally {
       setIsGrading(false);
     }
-  };
+  }, [currentQuestion, gradeResult, isGrading, userInput]);
 
   const handleTimerExpire = useCallback(() => {
     setTimeExpired(true);
-  }, []);
+    void handleJudge(userInput.trim() || "（時間切れ・無回答）");
+  }, [handleJudge, userInput]);
 
   const handleNext = () => {
     if (targetLanguage) startQuestion(targetLanguage);
@@ -344,8 +348,8 @@ export default function Home() {
                 <>
                   <button
                     type="button"
-                    onClick={handleJudge}
-                    disabled={userInput.trim().length === 0 || isGrading}
+                    onClick={() => handleJudge()}
+                    disabled={(userInput.trim().length === 0 && !timeExpired) || isGrading}
                     className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
                     {isGrading ? "採点中…" : timeExpired ? "時間切れでも判定する" : "判定する"}

@@ -24,12 +24,17 @@ interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
 
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
 interface SpeechRecognitionInstance extends EventTarget {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
+  maxAlternatives?: number;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -68,7 +73,7 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
   }, []);
 
   const handleSpeech = () => {
-    if (disabled || !canListen) return;
+    if (disabled) return;
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
@@ -76,11 +81,20 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
     }
 
     const SpeechRecognition = getSpeechRecognition();
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      setSpeechError("このブラウザでは音声認識に対応していません。Chrome または Safari で試してください。");
+      return;
+    }
+    if (typeof window !== "undefined" && !window.isSecureContext && window.location.hostname !== "localhost") {
+      setSpeechError("音声認識には HTTPS または localhost が必要です。");
+      return;
+    }
+
     const recognition = new SpeechRecognition();
     recognition.lang = speechLanguageFor(language);
     recognition.interimResults = true;
-    recognition.continuous = false;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
     baseValueRef.current = value.trim();
     setSpeechError(null);
 
@@ -92,14 +106,26 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
       const prefix = baseValueRef.current ? `${baseValueRef.current} ` : "";
       onChange(`${prefix}${transcript}`.trim());
     };
-    recognition.onerror = () => {
-      setSpeechError("音声を認識できませんでした。");
+    recognition.onerror = (event) => {
+      const messages: Record<string, string> = {
+        "not-allowed": "マイクの使用が許可されていません。ブラウザの権限設定を確認してください。",
+        "service-not-allowed": "ブラウザ側で音声認識サービスが許可されていません。",
+        "no-speech": "音声が検出されませんでした。もう一度話してみてください。",
+        "audio-capture": "マイクが見つかりません。入力デバイスを確認してください。",
+        network: "音声認識サービスに接続できませんでした。",
+      };
+      setSpeechError(messages[event.error] ?? `音声を認識できませんでした。(${event.error})`);
       setIsListening(false);
     };
     recognition.onend = () => setIsListening(false);
     recognitionRef.current = recognition;
-    setIsListening(true);
-    recognition.start();
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      setSpeechError("音声認識を開始できませんでした。少し待ってからもう一度試してください。");
+      setIsListening(false);
+    }
   };
 
   return (
@@ -116,14 +142,17 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
         <button
           type="button"
           onClick={handleSpeech}
-          disabled={disabled || !canListen}
+          disabled={disabled}
           className={[
             "absolute right-3 top-3 min-h-9 rounded-lg px-3 text-xs font-black shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
             isListening
               ? "bg-rose-600 text-white hover:bg-rose-700"
-              : "border border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700",
+              : canListen
+                ? "border border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                : "border border-amber-200 bg-amber-50 text-amber-700",
           ].join(" ")}
           title={canListen ? "音声で回答" : "このブラウザでは音声認識に対応していません"}
+          aria-pressed={isListening}
         >
           {isListening ? "停止" : "音声"}
         </button>

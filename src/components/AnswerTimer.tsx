@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Level } from "@/types/question";
 import { ANSWER_TIME_LIMIT_SECONDS } from "@/lib/speech";
 
@@ -19,6 +19,7 @@ function formatTime(seconds: number): string {
 export default function AnswerTimer({ level, paused, onExpire }: AnswerTimerProps) {
   const limit = ANSWER_TIME_LIMIT_SECONDS[level];
   const [remaining, setRemaining] = useState(limit);
+  const hasExpiredRef = useRef(false);
 
   useEffect(() => {
     if (paused || remaining <= 0) return;
@@ -29,7 +30,9 @@ export default function AnswerTimer({ level, paused, onExpire }: AnswerTimerProp
   }, [paused, remaining]);
 
   useEffect(() => {
-    if (remaining === 0) onExpire?.();
+    if (remaining !== 0 || hasExpiredRef.current) return;
+    hasExpiredRef.current = true;
+    onExpire?.();
   }, [onExpire, remaining]);
 
   const progress = useMemo(() => Math.round((remaining / limit) * 100), [limit, remaining]);
