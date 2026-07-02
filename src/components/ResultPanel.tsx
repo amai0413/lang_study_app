@@ -1,5 +1,7 @@
 import type { GradeResult, GradeStatus } from "@/lib/grade";
 import type { Question } from "@/types/question";
+import { speechLanguageFor } from "@/lib/speech";
+import SpeakButton from "./SpeakButton";
 
 const statusStyles: Record<GradeStatus, { label: string; className: string }> = {
   correct: { label: "正解", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
@@ -36,7 +38,14 @@ export default function ResultPanel({
 
       <div className="mt-1 rounded-lg bg-white/70 p-3">
         <p className="text-xs font-medium text-zinc-500">模範解答</p>
-        <p className="text-lg font-semibold text-zinc-900">{question.strictAnswer}</p>
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <p className="min-w-0 text-lg font-semibold text-zinc-900">{question.strictAnswer}</p>
+          <SpeakButton
+            text={question.strictAnswer}
+            lang={speechLanguageFor(question.targetLanguage)}
+            label="模範解答を再生"
+          />
+        </div>
         <p className="mt-1 text-xs text-zinc-500">文法ポイント: {question.grammarPoint}</p>
       </div>
     </div>

@@ -200,6 +200,7 @@ CEFRレベル: ${level}
 条件:
 - 上記の文法・構文を必ず使った問題にする
 - ${level} レベルに合った語彙で、実用的な日本語文にする
+- ネイティブ話者との自然な会話で使いやすい文にする
 - acceptedAnswers は代表的な正解バリエーションを最大4個に絞る
 - commonMistakes は1〜2個${scriptLine}${reviewLine}`;
 

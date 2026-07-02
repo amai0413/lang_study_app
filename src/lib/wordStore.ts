@@ -95,12 +95,12 @@ function saveWords(words: WordRecord[]) {
 
 /**
  * 採点結果から単語DBを更新する。
- * wasCorrect=true なら「覚えていた」として correctCount を加算。
+ * 単語ごとの remembered/correctness を優先し、なければ fallbackRemembered を使う。
  */
 export function recordWords(
   lang: TargetLanguage,
   words: WordEntry[],
-  wasCorrect: boolean,
+  fallbackRemembered: boolean,
 ): void {
   if (!words || words.length === 0) return;
   const all = loadWords();
@@ -111,11 +111,17 @@ export function recordWords(
     const surface = normalizeWordSurface(lang, w.surface ?? "");
     if (!surface) continue;
     const key = wordRecordKey(lang, surface);
+    const remembered =
+      typeof w.remembered === "boolean"
+        ? w.remembered
+        : w.correctness
+          ? w.correctness === "correct"
+          : fallbackRemembered;
     const existing = byKey.get(key);
     if (existing) {
       existing.seenCount += 1;
-      if (wasCorrect) existing.correctCount += 1;
-      existing.remembered = wasCorrect;
+      if (remembered) existing.correctCount += 1;
+      existing.remembered = remembered;
       existing.lastSeen = now;
       // 意味・読みは最新のもので補完
       existing.reading = w.reading || existing.reading;
@@ -130,8 +136,8 @@ export function recordWords(
         meaning: w.meaning ?? "",
         pos: w.pos ?? "",
         seenCount: 1,
-        correctCount: wasCorrect ? 1 : 0,
-        remembered: wasCorrect,
+        correctCount: remembered ? 1 : 0,
+        remembered,
         lastSeen: now,
       });
     }

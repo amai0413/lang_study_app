@@ -9,8 +9,8 @@ const roundedLatin = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Grammar Trainer",
-  description: "日本語の文を中国語・ヒンディー語・スペイン語で手入力回答する文法練習アプリ",
+  title: "Become Native!",
+  description: "ネイティブ話者に自然に通じる会話を目指す即答型言語学習アプリ",
 };
 
 export default function RootLayout({

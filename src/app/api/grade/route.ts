@@ -18,9 +18,14 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
   "betterExpression": "より自然な言い方（statusがacceptable/closeのときのみ。correctのときは空文字）",
   "explanationMarkdown": "下記テンプレートに厳密に従った解説",
   "words": [
-    { "surface": "単語", "reading": "読み方（ピンインやローマ字。スペイン語の場合は英語での意味）", "meaning": "日本語の意味", "pos": "品詞" }
+    { "surface": "単語", "reading": "読み方（ピンインやローマ字。スペイン語の場合は英語での意味）", "meaning": "日本語の意味", "pos": "品詞", "remembered": true, "correctness": "correct | partial | incorrect", "note": "短い理由" }
   ],
-  "grammarItems": ["この問題で使われた文法・構文の名前（例: 動詞+目的語の語順, 疑問助詞嗎）"]
+  "grammarItems": ["この問題で使われた文法・構文の名前（例: 動詞+目的語の語順, 疑問助詞嗎）"],
+  "answerAssessment": {
+    "vocabulary": { "status": "correct | partial | incorrect", "detail": "単語面の具体的評価" },
+    "grammar": { "status": "correct | partial | incorrect", "detail": "文法面の具体的評価" },
+    "naturalness": { "status": "correct | partial | incorrect", "detail": "自然さの具体的評価" }
+  }
 }
 
 【採点基準（重要）】
@@ -80,14 +85,59 @@ const GRADE_RESPONSE_SCHEMA = {
           reading: { type: "string" },
           meaning: { type: "string" },
           pos: { type: "string" },
+          remembered: { type: "boolean" },
+          correctness: { type: "string", enum: ["correct", "partial", "incorrect"] },
+          note: { type: "string" },
         },
-        required: ["surface", "reading", "meaning", "pos"],
-        propertyOrdering: ["surface", "reading", "meaning", "pos"],
+        required: ["surface", "reading", "meaning", "pos", "remembered", "correctness", "note"],
+        propertyOrdering: ["surface", "reading", "meaning", "pos", "remembered", "correctness", "note"],
       },
     },
     grammarItems: { type: "array", items: { type: "string" } },
+    answerAssessment: {
+      type: "object",
+      properties: {
+        vocabulary: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["correct", "partial", "incorrect"] },
+            detail: { type: "string" },
+          },
+          required: ["status", "detail"],
+          propertyOrdering: ["status", "detail"],
+        },
+        grammar: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["correct", "partial", "incorrect"] },
+            detail: { type: "string" },
+          },
+          required: ["status", "detail"],
+          propertyOrdering: ["status", "detail"],
+        },
+        naturalness: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["correct", "partial", "incorrect"] },
+            detail: { type: "string" },
+          },
+          required: ["status", "detail"],
+          propertyOrdering: ["status", "detail"],
+        },
+      },
+      required: ["vocabulary", "grammar", "naturalness"],
+      propertyOrdering: ["vocabulary", "grammar", "naturalness"],
+    },
   },
-  required: ["status", "feedback", "betterExpression", "explanationMarkdown", "words", "grammarItems"],
+  required: [
+    "status",
+    "feedback",
+    "betterExpression",
+    "explanationMarkdown",
+    "words",
+    "grammarItems",
+    "answerAssessment",
+  ],
   propertyOrdering: [
     "status",
     "feedback",
@@ -95,6 +145,7 @@ const GRADE_RESPONSE_SCHEMA = {
     "explanationMarkdown",
     "words",
     "grammarItems",
+    "answerAssessment",
   ],
 };
 
@@ -219,7 +270,14 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 
 単語欄の指示: ${readingInstruction}
 
-この回答を採点し、指定のJSON形式で返してください。単語解説は最大6語に絞り、解説③は必ず学習者の回答を引用して具体的に説明すること。`;
+単語記憶判定の指示:
+- words は模範解答の重要語と、学習者の回答に含まれる重要語を最大8語まで入れる
+- remembered は「学習者がその単語を正しい意味・正しい形で使えたか」で判定する
+- 全体の文が incorrect でも、正しく使えている単語は remembered=true / correctness=correct にする
+- 全体の文が correct/acceptable でも、単語選択・綴り・文字・語形が不自然または誤りなら remembered=false / correctness=incorrect または partial にする
+- answerAssessment は vocabulary / grammar / naturalness を、それぞれ correct・partial・incorrect で評価し、detail に具体的理由を書く
+
+この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、解説③は必ず学習者の回答を引用して具体的に説明すること。`;
 
   try {
     const text = await generateGeminiText({

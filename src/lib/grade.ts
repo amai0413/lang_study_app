@@ -7,6 +7,20 @@ export interface WordEntry {
   reading: string;
   meaning: string;
   pos: string;
+  remembered?: boolean;
+  correctness?: "correct" | "partial" | "incorrect";
+  note?: string;
+}
+
+export interface AssessmentItem {
+  status: "correct" | "partial" | "incorrect";
+  detail: string;
+}
+
+export interface AnswerAssessment {
+  vocabulary: AssessmentItem;
+  grammar: AssessmentItem;
+  naturalness: AssessmentItem;
 }
 
 export interface GradeResult {
@@ -19,6 +33,8 @@ export interface GradeResult {
   words?: WordEntry[];
   /** DB格納用: 使われた文法・構文タグ */
   grammarItems?: string[];
+  /** 視覚表示用: 単語・文法・自然さの観点別評価 */
+  answerAssessment?: AnswerAssessment;
 }
 
 export async function fetchGrade(question: Question, userAnswer: string): Promise<GradeResult> {

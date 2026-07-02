@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { Question, TargetLanguage, Level } from "@/types/question";
 import { fetchGrade, type GradeResult } from "@/lib/grade";
 import { appendHistory, loadHistory } from "@/lib/storage";
@@ -15,6 +15,8 @@ import ResultPanel from "@/components/ResultPanel";
 import ExplanationPanel from "@/components/ExplanationPanel";
 import ProgressMeter from "@/components/ProgressMeter";
 import StudyStatusView from "@/components/StudyStatusView";
+import AnswerTimer from "@/components/AnswerTimer";
+import AssessmentPanel from "@/components/AssessmentPanel";
 
 async function fetchQuestion(
   lang: TargetLanguage,
@@ -59,6 +61,8 @@ export default function Home() {
   const [userInput, setUserInput] = useState("");
   const [gradeResult, setGradeResult] = useState<GradeResult | null>(null);
   const [isReview, setIsReview] = useState(false);
+  const [reviewWord, setReviewWord] = useState<string | null>(null);
+  const [timeExpired, setTimeExpired] = useState(false);
   const [showStudyStatus, setShowStudyStatus] = useState(false);
   const [progress, setProgress] = useState<LearningProgress | null>(null);
   const [wordStats, setWordStats] = useState<{ learned: number; review: number }>({
@@ -76,10 +80,12 @@ export default function Home() {
     setCurrentQuestion(null);
     setGradeResult(null);
     setUserInput("");
+    setTimeExpired(false);
     setWordStats(getWordStats(lang));
     // カリキュラム＋習得度から出題対象を選ぶ（弱点/忘れた単語を復習に混ぜる）
     const target = selectTarget(lang, lvl);
     setIsReview(target.isReview);
+    setReviewWord(target.reviewWord?.surface ?? null);
     try {
       const question = await fetchQuestion(lang, lvl, target);
       setCurrentQuestion(question);
@@ -132,6 +138,10 @@ export default function Home() {
     }
   };
 
+  const handleTimerExpire = useCallback(() => {
+    setTimeExpired(true);
+  }, []);
+
   const handleNext = () => {
     if (targetLanguage) startQuestion(targetLanguage);
   };
@@ -143,6 +153,8 @@ export default function Home() {
     setUserInput("");
     setGenerateError(null);
     setGradeError(null);
+    setReviewWord(null);
+    setTimeExpired(false);
     setProgress(null);
     setIsGenerating(false);
     setIsGrading(false);
@@ -173,8 +185,10 @@ export default function Home() {
             <div className="rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-black text-emerald-700">
               A1 から自動スタート
             </div>
-            <h1 className="text-4xl font-black text-zinc-950 sm:text-5xl">Grammar Trainer</h1>
-            <p className="text-sm font-bold text-zinc-500">学習する言語を選んでください</p>
+            <h1 className="text-4xl font-black text-zinc-950 sm:text-5xl">Become Native!</h1>
+            <p className="max-w-xl text-sm font-bold leading-relaxed text-zinc-500">
+              ネイティブ話者にも自然に通じる会話を、即答力まで鍛える練習アプリです。
+            </p>
           </div>
           <div className="flex w-full flex-col gap-3">
             <div className="grid w-full gap-3 sm:grid-cols-3">
@@ -249,7 +263,7 @@ export default function Home() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         <header className="grid gap-3 lg:grid-cols-[minmax(220px,0.75fr)_minmax(420px,1.25fr)_auto] lg:items-center">
           <div>
-            <h1 className="text-2xl font-black text-zinc-950">Grammar Trainer</h1>
+            <h1 className="text-2xl font-black text-zinc-950">Become Native!</h1>
             <p className="text-xs font-bold text-zinc-500">
               {LANGUAGE_LABELS[targetLanguage]}・学習単語 {wordStats.learned}
               {wordStats.review > 0 ? `・復習 ${wordStats.review}` : ""}
@@ -291,17 +305,37 @@ export default function Home() {
                 isCompactMode ? "lg:pt-0" : "lg:gap-5",
               ].join(" ")}
             >
-              {isReview ? (
+              {isReview || reviewWord ? (
                 <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">
                   <span className="rounded-md bg-white px-2 py-0.5 text-[10px] tracking-wide">REVIEW</span>
-                  <span>苦手な文法を出題しています</span>
+                  <span>
+                    {[
+                      isReview ? "苦手な文法" : null,
+                      reviewWord ? `復習単語「${reviewWord}」` : null,
+                    ]
+                      .filter(Boolean)
+                      .join("・")}
+                    を出題しています
+                  </span>
                 </div>
               ) : null}
+
+              <AnswerTimer
+                key={currentQuestion.id}
+                level={currentQuestion.level}
+                paused={isGrading || Boolean(gradeResult)}
+                onExpire={handleTimerExpire}
+              />
 
               <QuestionCard question={currentQuestion} mode={isCompactMode ? "compact" : "hero"} />
 
               <div className="transition-all duration-700 ease-out">
-                <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
+                <AnswerInput
+                  value={userInput}
+                  onChange={setUserInput}
+                  language={currentQuestion.targetLanguage}
+                  disabled={!!gradeResult || isGrading}
+                />
               </div>
 
               {gradeResult ? <ResultPanel result={gradeResult} question={currentQuestion} /> : null}
@@ -314,7 +348,7 @@ export default function Home() {
                     disabled={userInput.trim().length === 0 || isGrading}
                     className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
-                    {isGrading ? "採点中…" : "判定する"}
+                    {isGrading ? "採点中…" : timeExpired ? "時間切れでも判定する" : "判定する"}
                   </button>
                   {gradeError ? <p className="text-center text-xs font-bold text-rose-600">{gradeError}</p> : null}
                 </>
@@ -336,6 +370,7 @@ export default function Home() {
 
                 {gradeResult ? (
                   <>
+                    <AssessmentPanel result={gradeResult} />
                     <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
                     <button
                       type="button"

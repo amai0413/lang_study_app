@@ -12,6 +12,7 @@ const LEVELS: Level[] = ["A1", "A2", "B1", "B2"];
 type Tab = "words" | "grammar";
 type LanguageFilter = "all" | TargetLanguage;
 type LevelFilter = "all" | Level;
+type PosFilter = "all" | string;
 
 interface StudyStatusViewProps {
   initialLanguage?: TargetLanguage | null;
@@ -58,6 +59,7 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
   const [activeTab, setActiveTab] = useState<Tab>("words");
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(initialLanguage ?? "all");
   const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [posFilter, setPosFilter] = useState<PosFilter>("all");
   const [query, setQuery] = useState("");
   const [reviewOnly, setReviewOnly] = useState(false);
 
@@ -66,6 +68,7 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
   const filteredWords = useMemo(() => {
     return words
       .filter((word) => languageFilter === "all" || word.lang === languageFilter)
+      .filter((word) => posFilter === "all" || word.pos === posFilter)
       .filter((word) => !reviewOnly || !word.remembered)
       .filter((word) => {
         if (!normalizedQuery) return true;
@@ -78,7 +81,18 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
         if (a.remembered !== b.remembered) return a.remembered ? 1 : -1;
         return b.lastSeen.localeCompare(a.lastSeen);
       });
-  }, [languageFilter, normalizedQuery, reviewOnly, words]);
+  }, [languageFilter, normalizedQuery, posFilter, reviewOnly, words]);
+
+  const posOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        words
+          .filter((word) => languageFilter === "all" || word.lang === languageFilter)
+          .map((word) => word.pos)
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [languageFilter, words]);
 
   const grammarRows = useMemo(() => {
     return curriculum
@@ -237,15 +251,29 @@ export default function StudyStatusView({ initialLanguage, onClose }: StudyStatu
                 ))}
               </div>
             ) : (
-              <label className="flex min-h-9 w-fit items-center gap-2 text-sm font-medium text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={reviewOnly}
-                  onChange={(event) => setReviewOnly(event.target.checked)}
-                  className="size-4 accent-zinc-900"
-                />
-                復習単語のみ
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex min-h-9 w-fit items-center gap-2 text-sm font-medium text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={reviewOnly}
+                    onChange={(event) => setReviewOnly(event.target.checked)}
+                    className="size-4 accent-zinc-900"
+                  />
+                  復習単語のみ
+                </label>
+                <select
+                  value={posFilter}
+                  onChange={(event) => setPosFilter(event.target.value)}
+                  className="min-h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none focus:border-emerald-500"
+                >
+                  <option value="all">すべての品詞</option>
+                  {posOptions.map((pos) => (
+                    <option key={pos} value={pos}>
+                      {pos}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
         </section>

@@ -1,4 +1,5 @@
 import type { Question } from "@/types/question";
+import SpeakButton from "./SpeakButton";
 
 const levelLabel: Record<Question["level"], string> = {
   A1: "初級 (A1)",
@@ -28,15 +29,18 @@ export default function QuestionCard({
       <span className="w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-700">
         {levelLabel[question.level]}
       </span>
-      <p className="text-sm font-bold text-zinc-400">この日本語の文を、手入力で答えてください</p>
-      <p
-        className={[
-          "font-black leading-relaxed text-zinc-950 transition-all duration-700 ease-out",
-          isHero ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl",
-        ].join(" ")}
-      >
-        {question.japanesePrompt}
-      </p>
+      <p className="text-sm font-bold text-zinc-400">この日本語の文を、手入力または音声で答えてください</p>
+      <div className={["flex w-full gap-3", isHero ? "flex-col items-center" : "items-start justify-between"].join(" ")}>
+        <p
+          className={[
+            "min-w-0 font-black leading-relaxed text-zinc-950 transition-all duration-700 ease-out",
+            isHero ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl",
+          ].join(" ")}
+        >
+          {question.japanesePrompt}
+        </p>
+        <SpeakButton text={question.japanesePrompt} lang="ja-JP" label="問題文を再生" />
+      </div>
     </div>
   );
 }
