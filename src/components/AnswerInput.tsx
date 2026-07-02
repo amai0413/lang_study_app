@@ -61,18 +61,113 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
 
 export default function AnswerInput({ value, onChange, language, disabled }: AnswerInputProps) {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const baseValueRef = useRef("");
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const canListen = Boolean(getSpeechRecognition());
+  const canRecord =
+    typeof window !== "undefined" &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    "MediaRecorder" in window;
 
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
-  const handleSpeech = () => {
+  const appendTranscript = (transcript: string) => {
+    const prefix = baseValueRef.current ? `${baseValueRef.current} ` : "";
+    onChange(`${prefix}${transcript}`.trim());
+  };
+
+  const transcribeAudio = async (blob: Blob) => {
+    if (blob.size === 0) {
+      setSpeechError("音声が録音されませんでした。もう一度試してください。");
+      return;
+    }
+    setIsTranscribing(true);
+    setSpeechError(null);
+    try {
+      const formData = new FormData();
+      formData.append("targetLanguage", language);
+      formData.append("audio", blob, `answer.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { transcript?: string; error?: string };
+      if (!response.ok || !data.transcript) {
+        throw new Error(data.error ?? "音声の文字起こしに失敗しました。");
+      }
+      appendTranscript(data.transcript);
+    } catch (error) {
+      setSpeechError(error instanceof Error ? error.message : "音声の文字起こしに失敗しました。");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  const startRecording = async () => {
+    if (!canRecord) return false;
+    if (typeof window !== "undefined" && !window.isSecureContext && window.location.hostname !== "localhost") {
+      setSpeechError("音声入力には HTTPS または localhost が必要です。");
+      return true;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      audioChunksRef.current = [];
+      baseValueRef.current = value.trim();
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        setSpeechError("録音中にエラーが発生しました。");
+        setIsListening(false);
+      };
+      recorder.onstop = () => {
+        setIsListening(false);
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        void transcribeAudio(blob);
+      };
+      setSpeechError(null);
+      recorder.start();
+      setIsListening(true);
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "マイクの使用が許可されていません。ブラウザの権限設定を確認してください。"
+          : "マイクを開始できませんでした。入力デバイスを確認してください。";
+      setSpeechError(message);
+      setIsListening(false);
+      return true;
+    }
+  };
+
+  const startBrowserSpeechRecognition = () => {
     if (disabled) return;
     if (isListening) {
       recognitionRef.current?.stop();
@@ -128,6 +223,16 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
     }
   };
 
+  const handleSpeech = async () => {
+    if (disabled || isTranscribing) return;
+    if (isListening && mediaRecorderRef.current?.state === "recording") {
+      stopRecording();
+      return;
+    }
+    const didUseRecorder = await startRecording();
+    if (!didUseRecorder) startBrowserSpeechRecognition();
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
@@ -142,19 +247,19 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
         <button
           type="button"
           onClick={handleSpeech}
-          disabled={disabled}
+          disabled={disabled || isTranscribing}
           className={[
             "absolute right-3 top-3 min-h-9 rounded-lg px-3 text-xs font-black shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
             isListening
               ? "bg-rose-600 text-white hover:bg-rose-700"
-              : canListen
+              : canRecord || canListen
                 ? "border border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
                 : "border border-amber-200 bg-amber-50 text-amber-700",
           ].join(" ")}
-          title={canListen ? "音声で回答" : "このブラウザでは音声認識に対応していません"}
+          title={canRecord ? "録音して回答" : canListen ? "音声で回答" : "このブラウザでは音声入力に対応していません"}
           aria-pressed={isListening}
         >
-          {isListening ? "停止" : "音声"}
+          {isTranscribing ? "変換中" : isListening ? "停止" : "音声"}
         </button>
       </div>
       {speechError ? <p className="text-xs font-bold text-rose-600">{speechError}</p> : null}

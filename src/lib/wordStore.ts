@@ -145,6 +145,25 @@ export function recordWords(
   saveWords([...byKey.values()]);
 }
 
+export function recordWordPractice(
+  lang: TargetLanguage,
+  word: Pick<WordEntry, "surface" | "reading" | "meaning" | "pos">,
+  remembered: boolean,
+): void {
+  recordWords(
+    lang,
+    [
+      {
+        ...word,
+        remembered,
+        correctness: remembered ? "correct" : "incorrect",
+        note: remembered ? "単語練習で正解" : "単語練習で復習",
+      },
+    ],
+    remembered,
+  );
+}
+
 /** 覚えていない（直近で間違えた）単語を古い順に返す */
 export function getForgottenWords(lang: TargetLanguage): WordRecord[] {
   return loadWords()

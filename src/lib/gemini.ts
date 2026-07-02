@@ -25,6 +25,14 @@ interface GeminiResponse {
   };
 }
 
+interface GeminiPart {
+  text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
+}
+
 function geminiModelPath(): string {
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
   return model.startsWith("models/") ? model : `models/${model}`;
@@ -41,6 +49,31 @@ export async function generateGeminiText({
   responseSchema,
   temperature = 0.2,
 }: GeminiTextOptions): Promise<string> {
+  return generateGeminiContent({
+    systemInstruction,
+    parts: [{ text: prompt }],
+    maxOutputTokens,
+    responseSchema,
+    responseMimeType: "application/json",
+    temperature,
+  });
+}
+
+export async function generateGeminiContent({
+  systemInstruction,
+  parts,
+  maxOutputTokens,
+  responseSchema,
+  responseMimeType,
+  temperature = 0.2,
+}: {
+  systemInstruction: string;
+  parts: GeminiPart[];
+  maxOutputTokens: number;
+  responseSchema?: unknown;
+  responseMimeType?: "application/json" | "text/plain";
+  temperature?: number;
+}): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("GEMINI_API_KEY が設定されていません。");
 
@@ -57,13 +90,13 @@ export async function generateGeminiText({
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }],
+          parts,
         },
       ],
       generationConfig: {
         candidateCount: 1,
         maxOutputTokens,
-        responseMimeType: "application/json",
+        ...(responseMimeType ? { responseMimeType } : {}),
         ...(responseSchema ? { responseSchema } : {}),
         temperature,
       },

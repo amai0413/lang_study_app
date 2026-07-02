@@ -17,6 +17,15 @@ import ProgressMeter from "@/components/ProgressMeter";
 import StudyStatusView from "@/components/StudyStatusView";
 import AnswerTimer from "@/components/AnswerTimer";
 import AssessmentPanel from "@/components/AssessmentPanel";
+import WordPracticeView from "@/components/WordPracticeView";
+
+type PracticeMode = "grammar" | "vocab";
+
+const HOME_LANG_META: Record<TargetLanguage, { flag: string; motif: string; tone: string }> = {
+  zh: { flag: "🇹🇼", motif: "茶館・夜市・繁体字", tone: "from-rose-50 to-amber-50" },
+  hi: { flag: "🇮🇳", motif: "市場・チャイ・デーヴァナーガリー", tone: "from-orange-50 to-emerald-50" },
+  es: { flag: "🇪🇸", motif: "広場・カフェ・会話", tone: "from-yellow-50 to-red-50" },
+};
 
 async function fetchQuestion(
   lang: TargetLanguage,
@@ -53,6 +62,7 @@ async function fetchQuestion(
 
 export default function Home() {
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage | null>(null);
+  const [practiceMode, setPracticeMode] = useState<PracticeMode | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
@@ -98,7 +108,20 @@ export default function Home() {
 
   const handleSelectLanguage = (lang: TargetLanguage) => {
     setTargetLanguage(lang);
+    setPracticeMode("grammar");
     startQuestion(lang);
+  };
+
+  const handleSelectWordPractice = (lang: TargetLanguage) => {
+    setTargetLanguage(lang);
+    setPracticeMode("vocab");
+    setCurrentQuestion(null);
+    setGradeResult(null);
+    setUserInput("");
+    setGenerateError(null);
+    setGradeError(null);
+    setProgress(getLearningProgress(lang));
+    setWordStats(getWordStats(lang));
   };
 
   const handleJudge = useCallback(async (answerOverride?: string) => {
@@ -152,6 +175,7 @@ export default function Home() {
 
   const handleChangeLanguage = () => {
     setTargetLanguage(null);
+    setPracticeMode(null);
     setCurrentQuestion(null);
     setGradeResult(null);
     setUserInput("");
@@ -180,41 +204,80 @@ export default function Home() {
     );
   }
 
+  if (targetLanguage && practiceMode === "vocab") {
+    return (
+      <WordPracticeView
+        language={targetLanguage}
+        onBack={handleChangeLanguage}
+        onStatsChange={() => {
+          setWordStats(getWordStats(targetLanguage));
+          setProgress(getLearningProgress(targetLanguage));
+        }}
+      />
+    );
+  }
+
   // ── 言語選択画面 ──
   if (!targetLanguage) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center bg-[#fbfaf6] px-5 py-8">
-        <div className="flex w-full max-w-3xl flex-col items-center gap-8">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div className="rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-black text-emerald-700">
+      <div className="min-h-full bg-[#fff7ed] px-5 py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-8">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="rounded-full bg-white px-4 py-1.5 text-xs font-black text-emerald-700 shadow-sm">
               A1 から自動スタート
             </div>
-            <h1 className="text-4xl font-black text-zinc-950 sm:text-5xl">Become Native!</h1>
-            <p className="max-w-xl text-sm font-bold leading-relaxed text-zinc-500">
+            <h1 className="text-5xl font-black text-zinc-950 sm:text-7xl">Become Native!</h1>
+            <p className="max-w-2xl text-base font-bold leading-relaxed text-zinc-600">
               ネイティブ話者にも自然に通じる会話を、即答力まで鍛える練習アプリです。
             </p>
           </div>
-          <div className="flex w-full flex-col gap-3">
-            <div className="grid w-full gap-3 sm:grid-cols-3">
-              {TARGET_LANGUAGES.map((lang) => (
-                <button
+          <div className="grid w-full gap-4 lg:grid-cols-3">
+            {TARGET_LANGUAGES.map((lang) => {
+              const meta = HOME_LANG_META[lang];
+              return (
+                <article
                   key={lang}
-                  type="button"
-                  onClick={() => handleSelectLanguage(lang)}
-                  className="min-h-28 w-full rounded-lg border border-zinc-200 bg-white px-4 text-xl font-black text-zinc-950 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 active:translate-y-0"
+                  className={`overflow-hidden rounded-lg border border-white/80 bg-gradient-to-br ${meta.tone} p-4 shadow-sm`}
                 >
-                  {LANGUAGE_LABELS[lang]}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowStudyStatus(true)}
-              className="min-h-11 w-full rounded-lg border border-zinc-200 bg-white text-sm font-black text-zinc-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
-            >
-              学習状況を見る
-            </button>
+                  <div className="flex min-h-44 flex-col justify-between rounded-lg bg-white/70 p-4">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-5xl">{meta.flag}</span>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-zinc-500">
+                          {meta.motif}
+                        </span>
+                      </div>
+                      <h2 className="mt-5 text-3xl font-black text-zinc-950">{LANGUAGE_LABELS[lang]}</h2>
+                      <p className="mt-1 text-sm font-bold text-zinc-500">会話と単語を別々に鍛える</p>
+                    </div>
+                    <div className="mt-5 grid gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectLanguage(lang)}
+                        className="min-h-11 rounded-lg bg-zinc-950 text-sm font-black text-white transition-colors hover:bg-emerald-700"
+                      >
+                        会話練習
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectWordPractice(lang)}
+                        className="min-h-11 rounded-lg border border-zinc-200 bg-white text-sm font-black text-zinc-700 transition-colors hover:border-amber-300 hover:bg-amber-50"
+                      >
+                        単語練習
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
+          <button
+            type="button"
+            onClick={() => setShowStudyStatus(true)}
+            className="min-h-11 w-full max-w-3xl rounded-lg border border-zinc-200 bg-white text-sm font-black text-zinc-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
+          >
+            学習状況を見る
+          </button>
         </div>
       </div>
     );
@@ -375,18 +438,23 @@ export default function Home() {
                 {gradeResult ? (
                   <>
                     <AssessmentPanel result={gradeResult} />
-                    <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      disabled={isGenerating}
-                      className="min-h-12 w-full rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      {isGenerating ? "AI が問題を生成中…" : "次の問題"}
-                    </button>
                   </>
                 ) : null}
               </aside>
+            ) : null}
+
+            {gradeResult ? (
+              <section className="flex flex-col gap-4 lg:col-span-2">
+                <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={isGenerating}
+                  className="mx-auto min-h-12 w-full max-w-sm rounded-lg bg-zinc-950 text-base font-black text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {isGenerating ? "AI が問題を生成中…" : "次の問題"}
+                </button>
+              </section>
             ) : null}
           </div>
         ) : null}

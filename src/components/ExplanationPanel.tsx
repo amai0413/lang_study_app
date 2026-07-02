@@ -15,6 +15,38 @@ const markStyles: Record<string, string> = {
   "×": "text-rose-700 bg-rose-50 border-rose-200",
 };
 
+function splitFoldableSections(markdown: string): {
+  lead: string;
+  sections: Array<{ title: string; body: string }>;
+} {
+  const lines = markdown.split("\n");
+  const sections: Array<{ title: string; body: string[] }> = [];
+  const lead: string[] = [];
+  let current: { title: string; body: string[] } | null = null;
+
+  for (const line of lines) {
+    const match = line.match(/^##\s+(1\.|2\.|3\.)\s+(.+)$/);
+    if (match) {
+      current = { title: `${match[1]} ${match[2]}`, body: [] };
+      sections.push(current);
+      continue;
+    }
+    if (current) {
+      current.body.push(line);
+    } else {
+      lead.push(line);
+    }
+  }
+
+  return {
+    lead: lead.join("\n").trim(),
+    sections: sections.map((section) => ({
+      title: section.title,
+      body: section.body.join("\n").trim(),
+    })),
+  };
+}
+
 const markdownComponents: Components = {
   h1: (props) => <h1 className="mt-2 text-xl font-black text-zinc-900" {...props} />,
   h2: (props) => (
@@ -69,12 +101,31 @@ const markdownComponents: Components = {
 
 export default function ExplanationPanel({ markdown }: { markdown?: string }) {
   if (!markdown) return null;
+  const { lead, sections } = splitFoldableSections(markdown);
   return (
     <div className="w-full rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
       <p className="text-xs font-black uppercase tracking-wide text-zinc-400">文法解説</p>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-        {markdown}
-      </ReactMarkdown>
+      {lead ? (
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          {lead}
+        </ReactMarkdown>
+      ) : null}
+      {sections.length > 0 ? (
+        <div className="mt-5 grid gap-3">
+          {sections.map((section) => (
+            <details key={section.title} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <summary className="cursor-pointer text-xl font-black text-zinc-900">
+                {section.title}
+              </summary>
+              <div className="mt-3 rounded-lg bg-white p-3">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {section.body}
+                </ReactMarkdown>
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
