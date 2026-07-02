@@ -237,7 +237,7 @@ export default function Home() {
   // ── クイズ画面 ──
   return (
     <div className="min-h-full bg-zinc-50">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6 sm:py-10">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-lg font-bold text-zinc-900">Grammar Trainer</h1>
@@ -264,24 +264,43 @@ export default function Home() {
           </div>
         </header>
 
-        <LevelSelector value={level} onChange={handleLevelChange} disabled={isGenerating || isGrading} />
+        <div className="lg:max-w-xl">
+          <LevelSelector value={level} onChange={handleLevelChange} disabled={isGenerating || isGrading} />
+        </div>
 
         {currentQuestion ? (
-          <>
-            {isReview ? (
-              <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                <span>🔁</span>
-                <span>復習: 苦手な文法を出題しています</span>
-              </div>
-            ) : null}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,480px)] lg:items-start">
+            <section className="flex min-w-0 flex-col gap-4">
+              {isReview ? (
+                <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  <span>🔁</span>
+                  <span>復習: 苦手な文法を出題しています</span>
+                </div>
+              ) : null}
 
-            <QuestionCard question={currentQuestion} />
+              <QuestionCard question={currentQuestion} />
 
-            <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
+              <AnswerInput value={userInput} onChange={setUserInput} disabled={!!gradeResult || isGrading} />
+
+              {gradeResult ? <ResultPanel result={gradeResult} question={currentQuestion} /> : null}
+
+              {!gradeResult ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleJudge}
+                    disabled={userInput.trim().length === 0 || isGrading}
+                    className="min-h-12 w-full rounded-xl bg-zinc-900 text-base font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+                  >
+                    {isGrading ? "採点中…" : "判定する"}
+                  </button>
+                  {gradeError ? <p className="text-center text-xs text-rose-600">{gradeError}</p> : null}
+                </>
+              ) : null}
+            </section>
 
             {gradeResult ? (
-              <>
-                <ResultPanel result={gradeResult} question={currentQuestion} />
+              <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6">
                 <ExplanationPanel markdown={gradeResult.explanationMarkdown} />
                 <button
                   type="button"
@@ -291,23 +310,9 @@ export default function Home() {
                 >
                   {isGenerating ? "AI が問題を生成中…" : "次の問題"}
                 </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleJudge}
-                  disabled={userInput.trim().length === 0 || isGrading}
-                  className="min-h-12 w-full rounded-xl bg-zinc-900 text-base font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
-                >
-                  {isGrading ? "採点中…" : "判定する"}
-                </button>
-                {gradeError ? (
-                  <p className="text-center text-xs text-rose-600">{gradeError}</p>
-                ) : null}
-              </>
-            )}
-          </>
+              </aside>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

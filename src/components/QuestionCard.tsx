@@ -13,7 +13,7 @@ export default function QuestionCard({ question }: { question: Question }) {
       <span className="w-fit rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-500">
         {levelLabel[question.level]}
       </span>
-      <p className="text-sm font-medium text-zinc-400">この日本語の文を、声または手入力で答えてください</p>
+      <p className="text-sm font-medium text-zinc-400">この日本語の文を、手入力で答えてください</p>
       <p className="text-2xl font-bold leading-relaxed text-zinc-900 sm:text-3xl">
         {question.japanesePrompt}
       </p>

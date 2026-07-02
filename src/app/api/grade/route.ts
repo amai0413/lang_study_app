@@ -108,6 +108,13 @@ interface GradeBody {
   userAnswer?: string;
 }
 
+function normalizeSpanishExplanationMarkdown(markdown: unknown): unknown {
+  if (typeof markdown !== "string") return markdown;
+  return markdown
+    .replace(/\|\s*読み方\s*\|/g, "| 英語の意味 |")
+    .replace(/\|\s*\[読み\]\s*\|/g, "| [英語の意味] |");
+}
+
 export async function POST(request: NextRequest) {
   if (!hasGeminiApiKey()) {
     return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
   const langLabel = LANGUAGE_LABELS[targetLanguage];
   const readingInstruction =
     targetLanguage === "es"
-      ? "words[].reading と単語解説表の「読み方」列には、発音ではなく英語での意味を入れてください（例: soy -> I am, casa -> house）。"
+      ? "words[].reading と単語解説表の第2列には、発音ではなく英語での意味を入れてください（例: soy -> I am, casa -> house）。explanationMarkdown の単語解説表の第2列見出しは必ず「英語の意味」にし、「読み方」という見出しは使わないでください。"
       : "words[].reading と単語解説表の「読み方」列には、読み方を入れてください（中国語はピンイン、ヒンディー語はローマ字）。";
 
   const userMessage = `以下の練習問題を採点し、回答を踏まえた解説を作成してください。
@@ -167,6 +174,10 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
     } catch {
       console.error("[/api/grade] raw:", text.slice(0, 400));
       return NextResponse.json({ error: "採点結果の解析に失敗しました。" }, { status: 500 });
+    }
+
+    if (targetLanguage === "es") {
+      parsed.explanationMarkdown = normalizeSpanishExplanationMarkdown(parsed.explanationMarkdown);
     }
 
     if (!parsed.status || !parsed.explanationMarkdown) {
