@@ -9,7 +9,7 @@ export const LANGUAGE_LABELS: Record<TargetLanguage, string> = {
 };
 
 export const LANGUAGE_GENERATION_LABELS: Record<TargetLanguage, string> = {
-  zh: "中国語（繁体字優先、簡体字も可）",
+  zh: "中国語（繁体字のみ。簡体字は使わない）",
   hi: "ヒンディー語（デーヴァナーガリー文字）",
   es: "スペイン語（ラテンアメリカ標準寄り。自然な地域差は可）",
 };

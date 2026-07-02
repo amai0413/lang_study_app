@@ -1,4 +1,5 @@
 import type { Level, TargetLanguage } from "@/types/question";
+import { toTraditionalChinese } from "@/lib/textNormalize";
 
 export interface GrammarItem {
   id: string;
@@ -14,7 +15,7 @@ export interface GrammarItem {
 // CEFR レベル別の文法・構文カリキュラム。
 // 新しい項目を足すときはこの配列に追加するだけでよい（出題AIが自動で参照する）。
 // ここは "たたき台"。ChatGPT 等で作った網羅的カリキュラムに差し替え/追記できる。
-export const curriculum: GrammarItem[] = [
+const rawCurriculum: GrammarItem[] = [
   // ───────── 中国語 A1 ─────────
 
   { id: "zh-a1-svo", language: "zh", level: "A1", name: "基本文型 SVO", pattern: "主語 + 動詞 + 目的語", summary: "中国語の基本語順。日本語のような助詞は使わず、語順で関係を示す。", exampleJa: "私はお茶を飲みます。", exampleTarget: "我喝茶。" },
@@ -24,7 +25,7 @@ export const curriculum: GrammarItem[] = [
   { id: "zh-a1-adj-predicate", language: "zh", level: "A1", name: "形容詞述語文", pattern: "主語 + 很 + 形容詞", summary: "中国語では形容詞がそのまま述語になる。自然な文では很を入れることが多い。", exampleJa: "彼は忙しいです。", exampleTarget: "他很忙。" },
   { id: "zh-a1-adj-negative", language: "zh", level: "A1", name: "形容詞の否定", pattern: "主語 + 不 + 形容詞", summary: "形容詞を否定するときは不を使う。", exampleJa: "今日は暑くありません。", exampleTarget: "今天不熱。" },
   { id: "zh-a1-you", language: "zh", level: "A1", name: "有構文", pattern: "主語 + 有 + 名詞", summary: "所有を表す。「〜を持っている」。", exampleJa: "私は本を持っています。", exampleTarget: "我有一本書。" },
-  { id: "zh-a1-meiyou", language: "zh", level: "A1", name: "没有", pattern: "主語 + 没有 + 名詞", summary: "有の否定。単に不有とは言わない。", exampleJa: "私は車を持っていません。", exampleTarget: "我沒有車。" },
+  { id: "zh-a1-meiyou", language: "zh", level: "A1", name: "沒有", pattern: "主語 + 沒有 + 名詞", summary: "有の否定。単に不有とは言わない。", exampleJa: "私は車を持っていません。", exampleTarget: "我沒有車。" },
   { id: "zh-a1-zai-location", language: "zh", level: "A1", name: "在：所在", pattern: "主語 + 在 + 場所", summary: "人や物がどこにいる・あるかを表す。", exampleJa: "私は家にいます。", exampleTarget: "我在家。" },
   { id: "zh-a1-zai-action", language: "zh", level: "A1", name: "在：場所で動作", pattern: "主語 + 在 + 場所 + 動詞", summary: "動作が行われる場所を表す。", exampleJa: "私は学校で勉強します。", exampleTarget: "我在學校學習。" },
   { id: "zh-a1-ma", language: "zh", level: "A1", name: "嗎疑問文", pattern: "平叙文 + 嗎", summary: "文末に嗎を置いてYes/No疑問文を作る。語順は変えない。", exampleJa: "あなたは中国語を話しますか。", exampleTarget: "你說中文嗎？" },
@@ -37,7 +38,7 @@ export const curriculum: GrammarItem[] = [
   { id: "zh-a1-weishenme", language: "zh", level: "A1", name: "為什麼", pattern: "為什麼 + 文", summary: "理由を尋ねる。", exampleJa: "あなたはなぜ中国語を勉強しますか。", exampleTarget: "你為什麼學中文？" },
   { id: "zh-a1-ne", language: "zh", level: "A1", name: "呢", pattern: "名詞 / 代詞 + 呢", summary: "前の話題を受けて「〜は？」と聞く。", exampleJa: "私は日本人です。あなたは？", exampleTarget: "我是日本人。你呢？" },
   { id: "zh-a1-bu", language: "zh", level: "A1", name: "不の否定", pattern: "不 + 動詞 / 形容詞", summary: "習慣・意志・状態の否定に使う。", exampleJa: "私はコーヒーを飲みません。", exampleTarget: "我不喝咖啡。" },
-  { id: "zh-a1-mei-action", language: "zh", level: "A1", name: "没の否定", pattern: "没 + 動詞", summary: "過去の動作が起きていないことを表す。", exampleJa: "私は今日ご飯を食べていません。", exampleTarget: "我今天沒吃飯。" },
+  { id: "zh-a1-mei-action", language: "zh", level: "A1", name: "沒の否定", pattern: "沒 + 動詞", summary: "過去の動作が起きていないことを表す。", exampleJa: "私は今日ご飯を食べていません。", exampleTarget: "我今天沒吃飯。" },
   { id: "zh-a1-pronouns", language: "zh", level: "A1", name: "人称代名詞", pattern: "我 / 你 / 他 / 她 / 我們 / 你們 / 他們", summary: "基本の人称代名詞。性別の違いは三人称単数の書き言葉で区別される。", exampleJa: "彼女は私の友達です。", exampleTarget: "她是我的朋友。" },
   { id: "zh-a1-men", language: "zh", level: "A1", name: "們", pattern: "代詞 / 人を表す名詞 + 們", summary: "人の複数を表す。物には普通使わない。", exampleJa: "私たちは学生です。", exampleTarget: "我們是學生。" },
   { id: "zh-a1-de-possessive", language: "zh", level: "A1", name: "的：所有", pattern: "名詞 / 代詞 + 的 + 名詞", summary: "「〜の」を表す。親族や所属では省略されることもある。", exampleJa: "これは私の本です。", exampleTarget: "這是我的書。" },
@@ -63,7 +64,7 @@ export const curriculum: GrammarItem[] = [
 
   { id: "zh-a2-le-completion", language: "zh", level: "A2", name: "動詞了：完了", pattern: "動詞 + 了 + 目的語", summary: "動作の完了・実現を表す。", exampleJa: "私はご飯を食べました。", exampleTarget: "我吃了飯。" },
   { id: "zh-a2-le-sentence", language: "zh", level: "A2", name: "文末了：変化", pattern: "文 + 了", summary: "新しい状況や変化を表す。", exampleJa: "雨が降ってきました。", exampleTarget: "下雨了。" },
-  { id: "zh-a2-meiyou-past", language: "zh", level: "A2", name: "過去否定 没有", pattern: "主語 + 沒有 + 動詞", summary: "過去にその動作が起きなかったことを表す。了は使わない。", exampleJa: "私は昨日学校へ行きませんでした。", exampleTarget: "我昨天沒有去學校。" },
+  { id: "zh-a2-meiyou-past", language: "zh", level: "A2", name: "過去否定 沒有", pattern: "主語 + 沒有 + 動詞", summary: "過去にその動作が起きなかったことを表す。了は使わない。", exampleJa: "私は昨日学校へ行きませんでした。", exampleTarget: "我昨天沒有去學校。" },
   { id: "zh-a2-guo", language: "zh", level: "A2", name: "経験の過", pattern: "動詞 + 過", summary: "「〜したことがある」という経験を表す。", exampleJa: "私は台湾へ行ったことがあります。", exampleTarget: "我去過台灣。" },
   { id: "zh-a2-mei-guo", language: "zh", level: "A2", name: "経験の否定", pattern: "沒 + 動詞 + 過", summary: "「〜したことがない」。", exampleJa: "私は北京へ行ったことがありません。", exampleTarget: "我沒去過北京。" },
   { id: "zh-a2-zai-progressive", language: "zh", level: "A2", name: "在・正在：進行", pattern: "主語 + 在 / 正在 + 動詞", summary: "今まさに動作が進行中であることを表す。", exampleJa: "私は今勉強しています。", exampleTarget: "我正在學習。" },
@@ -536,6 +537,16 @@ export const curriculum: GrammarItem[] = [
 ];
 
 const LEVEL_ORDER: Level[] = ["A1", "A2", "B1", "B2"];
+
+export const curriculum: GrammarItem[] = rawCurriculum.map((item) => {
+  if (item.language !== "zh") return item;
+  return {
+    ...item,
+    name: toTraditionalChinese(item.name),
+    pattern: toTraditionalChinese(item.pattern),
+    exampleTarget: toTraditionalChinese(item.exampleTarget),
+  };
+});
 
 export function getCurriculum(language: TargetLanguage, level: Level): GrammarItem[] {
   return curriculum.filter((g) => g.language === language && g.level === level);

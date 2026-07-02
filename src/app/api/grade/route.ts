@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseAIJSON } from "@/lib/aiJson";
 import { generateGeminiText, hasGeminiApiKey } from "@/lib/gemini";
 import { LANGUAGE_LABELS, isTargetLanguage, targetLanguageListLabel } from "@/lib/languages";
+import { toTraditionalChinese } from "@/lib/textNormalize";
 import type { TargetLanguage, Level } from "@/types/question";
 
 // 採点 + 回答を踏まえた解説を1回で生成する。
@@ -115,6 +116,65 @@ function normalizeSpanishExplanationMarkdown(markdown: unknown): unknown {
     .replace(/\|\s*\[読み\]\s*\|/g, "| [英語の意味] |");
 }
 
+function normalizeChineseExplanationMarkdown(markdown: unknown): unknown {
+  if (typeof markdown !== "string") return markdown;
+  let section = "";
+  return markdown
+    .split("\n")
+    .map((line) => {
+      if (line.startsWith("## ")) section = line;
+
+      if (section === "## 例文" && line.startsWith("**")) {
+        return toTraditionalChinese(line);
+      }
+
+      if (section === "## ② 単語解説" && line.startsWith("|")) {
+        const cells = line.split("|");
+        const firstCell = cells[1]?.trim();
+        if (!firstCell || firstCell === "---" || firstCell === "単語") return line;
+        cells[1] = ` ${toTraditionalChinese(firstCell)} `;
+        return cells.join("|");
+      }
+
+      if (section === "## ④ 覚えておきたい構文") {
+        if (line.startsWith("**")) return toTraditionalChinese(line);
+        if (line.startsWith("- ")) {
+          const separator = line.indexOf("　");
+          if (separator > 0) {
+            return `${toTraditionalChinese(line.slice(0, separator))}${line.slice(separator)}`;
+          }
+        }
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
+function normalizeChineseGradeResult(parsed: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...parsed,
+    betterExpression:
+      typeof parsed.betterExpression === "string"
+        ? toTraditionalChinese(parsed.betterExpression)
+        : parsed.betterExpression,
+    words: Array.isArray(parsed.words)
+      ? parsed.words.map((word) => {
+          if (!word || typeof word !== "object") return word;
+          const item = word as Record<string, unknown>;
+          return {
+            ...item,
+            surface:
+              typeof item.surface === "string"
+                ? toTraditionalChinese(item.surface)
+                : item.surface,
+          };
+        })
+      : parsed.words,
+    explanationMarkdown: normalizeChineseExplanationMarkdown(parsed.explanationMarkdown),
+  };
+}
+
 export async function POST(request: NextRequest) {
   if (!hasGeminiApiKey()) {
     return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
@@ -142,7 +202,9 @@ export async function POST(request: NextRequest) {
   const readingInstruction =
     targetLanguage === "es"
       ? "words[].reading と単語解説表の第2列には、発音ではなく英語での意味を入れてください（例: soy -> I am, casa -> house）。explanationMarkdown の単語解説表の第2列見出しは必ず「英語の意味」にし、「読み方」という見出しは使わないでください。"
-      : "words[].reading と単語解説表の「読み方」列には、読み方を入れてください（中国語はピンイン、ヒンディー語はローマ字）。";
+      : targetLanguage === "zh"
+        ? "中国語の出力は、betterExpression・例文・単語表・words[].surface まで必ず繁体字に統一してください。簡体字（喜欢, 吗, 学, 说, 没 など）は使わず、喜歡, 嗎, 學, 說, 沒 のように書いてください。words[].reading と単語解説表の「読み方」列にはピンインを入れてください。学習者が簡体字で答えた場合も意味が合えば文字種だけで incorrect にしないでください。"
+        : "words[].reading と単語解説表の「読み方」列には、読み方を入れてください（ヒンディー語はローマ字）。";
 
   const userMessage = `以下の練習問題を採点し、回答を踏まえた解説を作成してください。
 
@@ -178,6 +240,9 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 
     if (targetLanguage === "es") {
       parsed.explanationMarkdown = normalizeSpanishExplanationMarkdown(parsed.explanationMarkdown);
+    }
+    if (targetLanguage === "zh") {
+      parsed = normalizeChineseGradeResult(parsed);
     }
 
     if (!parsed.status || !parsed.explanationMarkdown) {

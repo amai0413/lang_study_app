@@ -6,6 +6,7 @@ import {
   isTargetLanguage,
   targetLanguageListLabel,
 } from "@/lib/languages";
+import { toTraditionalChinese } from "@/lib/textNormalize";
 import type { TargetLanguage, Level } from "@/types/question";
 
 // 解説なし・問題データのみを生成する（高速）
@@ -32,8 +33,8 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリ用の問題作成専門
 
 const LANGUAGE_GRAMMAR_OPTIONS: Record<TargetLanguage, string[]> = {
   zh: [
-    "我 + 喜歡/喜欢 + 名詞",
-    "你 + 動詞 + 嗎/吗",
+    "我 + 喜歡 + 名詞",
+    "你 + 動詞 + 嗎",
     "我 + 想 + 動詞",
     "我 + 有 + 名詞",
     "我 + 去 + 場所",
@@ -62,6 +63,41 @@ const LANGUAGE_GRAMMAR_OPTIONS: Record<TargetLanguage, string[]> = {
     "疑問詞 qué / dónde / por qué",
   ],
 };
+
+function asTraditionalChineseQuestion(parsed: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...parsed,
+    strictAnswer:
+      typeof parsed.strictAnswer === "string"
+        ? toTraditionalChinese(parsed.strictAnswer)
+        : parsed.strictAnswer,
+    acceptedAnswers: Array.isArray(parsed.acceptedAnswers)
+      ? parsed.acceptedAnswers.map((answer) =>
+          typeof answer === "string" ? toTraditionalChinese(answer) : answer,
+        )
+      : parsed.acceptedAnswers,
+    requiredKeywords: Array.isArray(parsed.requiredKeywords)
+      ? parsed.requiredKeywords.map((keyword) =>
+          typeof keyword === "string" ? toTraditionalChinese(keyword) : keyword,
+        )
+      : parsed.requiredKeywords,
+    grammarPoint:
+      typeof parsed.grammarPoint === "string"
+        ? toTraditionalChinese(parsed.grammarPoint)
+        : parsed.grammarPoint,
+    commonMistakes: Array.isArray(parsed.commonMistakes)
+      ? parsed.commonMistakes.map((mistake) => {
+          if (!mistake || typeof mistake !== "object") return mistake;
+          const item = mistake as Record<string, unknown>;
+          return {
+            ...item,
+            answer:
+              typeof item.answer === "string" ? toTraditionalChinese(item.answer) : item.answer,
+          };
+        })
+      : parsed.commonMistakes,
+  };
+}
 
 const QUESTION_RESPONSE_SCHEMA = {
   type: "object",
@@ -150,6 +186,10 @@ export async function POST(request: NextRequest) {
     reviewWord?.surface
       ? `\n- 可能であれば単語「${reviewWord.surface}」${reviewWord.meaning ? `（${reviewWord.meaning}）` : ""}を自然に含める（復習のため）`
       : "";
+  const scriptLine =
+    targetLanguage === "zh"
+      ? "\n- 中国語の出力は必ず繁体字に統一する。簡体字（喜欢, 吗, 学, 说, 没 など）は使わず、喜歡, 嗎, 學, 說, 沒 のように書く"
+      : "";
 
   const userMessage = `${LANGUAGE_GENERATION_LABELS[targetLanguage]} の練習問題を1問作成してください。
 
@@ -161,7 +201,7 @@ CEFRレベル: ${level}
 - 上記の文法・構文を必ず使った問題にする
 - ${level} レベルに合った語彙で、実用的な日本語文にする
 - acceptedAnswers は代表的な正解バリエーションを最大4個に絞る
-- commonMistakes は1〜2個${reviewLine}`;
+- commonMistakes は1〜2個${scriptLine}${reviewLine}`;
 
   try {
     const text = await generateGeminiText({
@@ -184,6 +224,10 @@ CEFRレベル: ${level}
       if (!(field in parsed)) {
         return NextResponse.json({ error: `フィールド "${field}" がありません。` }, { status: 500 });
       }
+    }
+
+    if (targetLanguage === "zh") {
+      parsed = asTraditionalChineseQuestion(parsed);
     }
 
     return NextResponse.json({ question: parsed });

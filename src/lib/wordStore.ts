@@ -1,5 +1,6 @@
 import type { TargetLanguage } from "@/types/question";
 import type { WordEntry } from "./grade";
+import { normalizeWordSurface, wordRecordKey } from "./textNormalize";
 
 export interface WordRecord {
   key: string; // `${lang}:${surface}`
@@ -16,13 +17,72 @@ export interface WordRecord {
 
 const STORAGE_KEY = "voice-grammar-trainer:words";
 
+function mergeWordRecord(existing: WordRecord, next: WordRecord): WordRecord {
+  const nextIsNewer = (next.lastSeen || "").localeCompare(existing.lastSeen || "") >= 0;
+  const latest = nextIsNewer ? next : existing;
+  return {
+    ...existing,
+    surface: latest.surface,
+    reading: latest.reading || existing.reading,
+    meaning: latest.meaning || existing.meaning,
+    pos: latest.pos || existing.pos,
+    seenCount: existing.seenCount + next.seenCount,
+    correctCount: existing.correctCount + next.correctCount,
+    remembered: latest.remembered,
+    lastSeen: latest.lastSeen || existing.lastSeen,
+  };
+}
+
+function normalizeStoredWords(words: WordRecord[]): { words: WordRecord[]; changed: boolean } {
+  const byKey = new Map<string, WordRecord>();
+  let changed = false;
+
+  for (const word of words) {
+    if (!word?.lang || !word.surface) {
+      changed = true;
+      continue;
+    }
+
+    const normalizedSurface = normalizeWordSurface(word.lang, word.surface);
+    const key = wordRecordKey(word.lang, normalizedSurface);
+    const normalized: WordRecord = {
+      ...word,
+      key,
+      surface: normalizedSurface,
+      reading: word.reading ?? "",
+      meaning: word.meaning ?? "",
+      pos: word.pos ?? "",
+      seenCount: word.seenCount ?? 0,
+      correctCount: word.correctCount ?? 0,
+      remembered: Boolean(word.remembered),
+      lastSeen: word.lastSeen ?? "",
+    };
+    const existing = byKey.get(key);
+    if (existing) {
+      byKey.set(key, mergeWordRecord(existing, normalized));
+      changed = true;
+    } else {
+      byKey.set(key, normalized);
+    }
+
+    if (word.key !== key || word.surface !== normalizedSurface) {
+      changed = true;
+    }
+  }
+
+  return { words: [...byKey.values()], changed };
+}
+
 export function loadWords(): WordRecord[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as WordRecord[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    const normalized = normalizeStoredWords(parsed as WordRecord[]);
+    if (normalized.changed) saveWords(normalized.words);
+    return normalized.words;
   } catch {
     return [];
   }
@@ -48,9 +108,9 @@ export function recordWords(
   const now = new Date().toISOString();
 
   for (const w of words) {
-    const surface = w.surface?.trim();
+    const surface = normalizeWordSurface(lang, w.surface ?? "");
     if (!surface) continue;
-    const key = `${lang}:${surface}`;
+    const key = wordRecordKey(lang, surface);
     const existing = byKey.get(key);
     if (existing) {
       existing.seenCount += 1;
