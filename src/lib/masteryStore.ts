@@ -1,4 +1,5 @@
 import type { GrammarItem } from "@/data/curriculum";
+import { readLocalStorageJSON, writeLocalStorageJSON } from "./localStore";
 
 export interface MasteryRecord {
   grammarItemId: string;
@@ -9,21 +10,16 @@ export interface MasteryRecord {
 
 const STORAGE_KEY = "voice-grammar-trainer:mastery";
 
+function isRecordObject(value: unknown): boolean {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 export function loadMastery(): Record<string, MasteryRecord> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, MasteryRecord>) : {};
-  } catch {
-    return {};
-  }
+  return readLocalStorageJSON<Record<string, MasteryRecord>>(STORAGE_KEY, {}, isRecordObject);
 }
 
 function saveMastery(data: Record<string, MasteryRecord>) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  writeLocalStorageJSON(STORAGE_KEY, data);
 }
 
 export function recordMasteryAttempt(grammarItemId: string, wasCorrect: boolean): void {

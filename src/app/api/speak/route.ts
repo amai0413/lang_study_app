@@ -1,93 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateGeminiSpeech, hasGeminiApiKey } from "@/lib/gemini";
+import type { AudioPurpose } from "@/lib/ai/types";
+import {
+  getOrCreateSpeech,
+  hasTtsCredentials,
+  readCachedSpeech,
+  ttsCredentialsErrorMessage,
+} from "@/lib/ai/cache/audioCache";
+
+export const runtime = "nodejs";
 
 const MAX_TTS_TEXT_LENGTH = 500;
 
 interface SpeakBody {
   text?: string;
   lang?: string;
+  purpose?: AudioPurpose;
+  voiceId?: string;
+  rate?: string;
+  format?: "audio" | "json";
 }
 
-const TTS_PROFILES: Record<
-  string,
-  {
-    voice: string;
-    languageName: string;
-    accent: string;
+function speakError(error: unknown): NextResponse {
+  console.error("[/api/speak]", error);
+  const message = error instanceof Error ? error.message : "";
+  if (message.toLowerCase().includes("quota")) {
+    return NextResponse.json(
+      { error: "自然音声の生成上限に達しています。時間を置いて再試行してください。" },
+      { status: 429 },
+    );
   }
-> = {
-  "zh-TW": {
-    voice: "Sulafat",
-    languageName: "Traditional Mandarin Chinese",
-    accent: "Taiwan Mandarin pronunciation",
-  },
-  "hi-IN": {
-    voice: "Achird",
-    languageName: "Hindi",
-    accent: "natural native Hindi pronunciation from India",
-  },
-  "es-ES": {
-    voice: "Sulafat",
-    languageName: "Spanish",
-    accent: "clear neutral native Spanish pronunciation",
-  },
-};
-
-function buildTtsPrompt(text: string, lang: string): string {
-  const profile = TTS_PROFILES[lang] ?? {
-    voice: "Sulafat",
-    languageName: "the target language",
-    accent: "natural native pronunciation",
-  };
-
-  return `# AUDIO PROFILE
-A friendly native language coach reading a short study sentence for pronunciation practice.
-
-## DIRECTOR'S NOTES
-Language: ${profile.languageName}
-Accent: ${profile.accent}
-Style: Warm, natural, conversational, and human. Avoid robotic narration.
-Pacing: Slightly slower than casual speech, with smooth connected pronunciation. Do not over-enunciate.
-Task: Read the transcript exactly. Do not translate it. Do not add explanations.
-
-## TRANSCRIPT
-${text}`;
-}
-
-function writeString(view: DataView, offset: number, value: string) {
-  for (let index = 0; index < value.length; index += 1) {
-    view.setUint8(offset + index, value.charCodeAt(index));
-  }
-}
-
-function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bitsPerSample = 16): ArrayBuffer {
-  const headerSize = 44;
-  const blockAlign = (channels * bitsPerSample) / 8;
-  const byteRate = sampleRate * blockAlign;
-  const buffer = new ArrayBuffer(headerSize + pcm.byteLength);
-  const view = new DataView(buffer);
-
-  writeString(view, 0, "RIFF");
-  view.setUint32(4, 36 + pcm.byteLength, true);
-  writeString(view, 8, "WAVE");
-  writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, channels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitsPerSample, true);
-  writeString(view, 36, "data");
-  view.setUint32(40, pcm.byteLength, true);
-  new Uint8Array(buffer, headerSize).set(pcm);
-
-  return buffer;
+  return NextResponse.json({ error: "自然音声の生成に失敗しました。" }, { status: 500 });
 }
 
 export async function POST(request: NextRequest) {
-  if (!hasGeminiApiKey()) {
-    return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
+  if (!hasTtsCredentials()) {
+    return NextResponse.json({ error: ttsCredentialsErrorMessage() }, { status: 500 });
   }
 
   let body: SpeakBody;
@@ -99,6 +46,9 @@ export async function POST(request: NextRequest) {
 
   const text = body.text?.trim();
   const lang = body.lang?.trim() || "hi-IN";
+  const purpose = body.purpose ?? "sentence";
+  const format = body.format ?? "audio";
+
   if (!text) {
     return NextResponse.json({ error: "text がありません。" }, { status: 400 });
   }
@@ -107,21 +57,43 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const profile = TTS_PROFILES[lang] ?? TTS_PROFILES["hi-IN"];
-    const pcm = await generateGeminiSpeech({
-      prompt: buildTtsPrompt(text, lang),
-      voice: profile.voice,
+    const result = await getOrCreateSpeech({
+      text,
+      lang,
+      purpose,
+      voiceId: body.voiceId,
+      rate: body.rate,
     });
-    const wav = pcmToWav(pcm);
 
-    return new NextResponse(wav, {
+    if (format === "json") {
+      return NextResponse.json({
+        success: true,
+        provider: result.provider,
+        cached: result.cached,
+        audioUrl: result.audioUrl,
+        cacheKey: result.cacheKey,
+        voiceId: result.voiceId,
+        rate: result.rate,
+        createdAt: result.createdAt,
+      });
+    }
+
+    const audioBuffer = await readCachedSpeech(result);
+    if (!audioBuffer) {
+      return NextResponse.json({ error: "音声キャッシュを読み込めませんでした。" }, { status: 500 });
+    }
+
+    const responseBody = new ArrayBuffer(audioBuffer.byteLength);
+    new Uint8Array(responseBody).set(audioBuffer);
+
+    return new NextResponse(responseBody, {
       headers: {
-        "Cache-Control": "no-store",
-        "Content-Type": "audio/wav",
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": result.contentType,
+        "X-Audio-Cache": result.cached ? "hit" : "miss",
       },
     });
   } catch (error) {
-    console.error("[/api/speak]", error);
-    return NextResponse.json({ error: "音声生成に失敗しました。" }, { status: 500 });
+    return speakError(error);
   }
 }

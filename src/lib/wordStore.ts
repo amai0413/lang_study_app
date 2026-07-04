@@ -1,5 +1,7 @@
 import type { TargetLanguage } from "@/types/question";
+import type { AudioStatus, StoredAudioMetadata } from "@/lib/ai/types";
 import type { WordEntry } from "./grade";
+import { readLocalStorageJSON, writeLocalStorageJSON } from "./localStore";
 import { normalizeWordSurface, wordRecordKey } from "./textNormalize";
 
 export interface WordRecord {
@@ -13,6 +15,9 @@ export interface WordRecord {
   correctCount: number;
   remembered: boolean; // 直近の結果で覚えていたか
   lastSeen: string; // ISO
+  audio?: StoredAudioMetadata;
+  audioStatus?: AudioStatus;
+  audioError?: string;
 }
 
 const STORAGE_KEY = "voice-grammar-trainer:words";
@@ -30,6 +35,9 @@ function mergeWordRecord(existing: WordRecord, next: WordRecord): WordRecord {
     correctCount: existing.correctCount + next.correctCount,
     remembered: latest.remembered,
     lastSeen: latest.lastSeen || existing.lastSeen,
+    audio: latest.audio ?? existing.audio,
+    audioStatus: latest.audioStatus ?? existing.audioStatus ?? (latest.audio ?? existing.audio ? "ready" : "none"),
+    audioError: latest.audioError ?? existing.audioError,
   };
 }
 
@@ -56,6 +64,9 @@ function normalizeStoredWords(words: WordRecord[]): { words: WordRecord[]; chang
       correctCount: word.correctCount ?? 0,
       remembered: Boolean(word.remembered),
       lastSeen: word.lastSeen ?? "",
+      audio: word.audio,
+      audioStatus: word.audioStatus ?? (word.audio ? "ready" : "none"),
+      audioError: word.audioError,
     };
     const existing = byKey.get(key);
     if (existing) {
@@ -73,24 +84,60 @@ function normalizeStoredWords(words: WordRecord[]): { words: WordRecord[]; chang
   return { words: [...byKey.values()], changed };
 }
 
+// 単語DBは採点・統計・カード表示など至る所から読まれるので、
+// 呼び出しのたびに全件を JSON.parse + 正規化するのは避けてメモリに持つ。
+// 書き込みは必ず saveWords を通るため、そこでキャッシュを更新すれば一貫する。
+let wordsCache: WordRecord[] | null = null;
+
 export function loadWords(): WordRecord[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const normalized = normalizeStoredWords(parsed as WordRecord[]);
-    if (normalized.changed) saveWords(normalized.words);
-    return normalized.words;
-  } catch {
-    return [];
-  }
+  if (wordsCache) return wordsCache;
+  const raw = readLocalStorageJSON<WordRecord[]>(STORAGE_KEY, [], Array.isArray);
+  if (raw.length === 0) return raw;
+  const normalized = normalizeStoredWords(raw);
+  if (normalized.changed) saveWords(normalized.words);
+  else wordsCache = normalized.words;
+  return normalized.words;
 }
 
-function saveWords(words: WordRecord[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+export function saveWords(words: WordRecord[]) {
+  wordsCache = words;
+  writeLocalStorageJSON(STORAGE_KEY, words);
+}
+
+/** 表示用: 1単語の学習記録を引く（無ければ undefined）。 */
+export function findWordRecord(lang: TargetLanguage, surface: string): WordRecord | undefined {
+  const key = wordRecordKey(lang, surface);
+  return loadWords().find((word) => word.key === key);
+}
+
+export function updateWordAudio(
+  updates: Array<{
+    lang: TargetLanguage;
+    surface: string;
+    audio?: StoredAudioMetadata;
+    audioStatus?: AudioStatus;
+    audioError?: string;
+  }>,
+): WordRecord[] {
+  const all = loadWords();
+  const byKey = new Map(all.map((word) => [word.key, word]));
+
+  for (const update of updates) {
+    const surface = normalizeWordSurface(update.lang, update.surface);
+    const key = wordRecordKey(update.lang, surface);
+    const existing = byKey.get(key);
+    if (!existing) continue;
+    byKey.set(key, {
+      ...existing,
+      audio: update.audio ?? existing.audio,
+      audioStatus: update.audioStatus ?? (update.audio ? "ready" : existing.audioStatus ?? "none"),
+      audioError: update.audioError,
+    });
+  }
+
+  const next = [...byKey.values()];
+  saveWords(next);
+  return next;
 }
 
 /**
@@ -139,6 +186,7 @@ export function recordWords(
         correctCount: remembered ? 1 : 0,
         remembered,
         lastSeen: now,
+        audioStatus: "none",
       });
     }
   }
@@ -177,4 +225,61 @@ export function getWordStats(lang: TargetLanguage): { learned: number; review: n
     learned: words.length,
     review: words.filter((w) => !w.remembered).length,
   };
+}
+
+/** 例文登録での単語の表示状態: 記憶済み / 復習 / 初見（確認） */
+export type PhraseWordStatus = "remembered" | "review" | "new";
+
+/**
+ * 例文に含まれる単語をDBと照合しつつ登録する。
+ * - 既存語: 記憶状態は変えず、出現回数と最終出現・意味/読みの補完だけ更新する
+ * - 初見語: remembered=false（確認待ち）で新規登録し、復習の輪に入れる
+ * 表示用に、保存「前」の状態から判定したステータスを normalizedSurface -> status で返す。
+ */
+export function registerPhraseWords(
+  lang: TargetLanguage,
+  words: Array<Pick<WordEntry, "surface" | "reading" | "meaning" | "pos">>,
+): Record<string, PhraseWordStatus> {
+  const all = loadWords();
+  const byKey = new Map(all.map((w) => [w.key, w]));
+  const now = new Date().toISOString();
+  const statuses: Record<string, PhraseWordStatus> = {};
+
+  for (const w of words) {
+    const surface = normalizeWordSurface(lang, w.surface ?? "");
+    if (!surface) continue;
+    const key = wordRecordKey(lang, surface);
+    const existing = byKey.get(key);
+
+    // 保存前の状態で判定する（初見なら「確認」を表示できる）
+    if (!(surface in statuses)) {
+      statuses[surface] = existing ? (existing.remembered ? "remembered" : "review") : "new";
+    }
+
+    if (existing) {
+      existing.seenCount += 1;
+      existing.lastSeen = now;
+      existing.reading = w.reading || existing.reading;
+      existing.meaning = w.meaning || existing.meaning;
+      existing.pos = w.pos || existing.pos;
+      // 記憶状態（remembered）は練習・採点の結果を尊重して維持する
+    } else {
+      byKey.set(key, {
+        key,
+        lang,
+        surface,
+        reading: w.reading ?? "",
+        meaning: w.meaning ?? "",
+        pos: w.pos ?? "",
+        seenCount: 1,
+        correctCount: 0,
+        remembered: false,
+        lastSeen: now,
+        audioStatus: "none",
+      });
+    }
+  }
+
+  saveWords([...byKey.values()]);
+  return statuses;
 }

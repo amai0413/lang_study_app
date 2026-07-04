@@ -23,7 +23,7 @@ export default function RootLayout({
       lang="en"
       className={`${roundedLatin.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full w-full flex-col">{children}</body>
     </html>
   );
 }

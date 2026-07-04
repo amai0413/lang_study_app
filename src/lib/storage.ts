@@ -1,4 +1,5 @@
 import type { TargetLanguage } from "@/types/question";
+import { readLocalStorageJSON, writeLocalStorageJSON } from "./localStore";
 
 export type HistoryStatus = "correct" | "close" | "incorrect";
 
@@ -13,20 +14,11 @@ export interface HistoryEntry {
 const STORAGE_KEY = "voice-grammar-trainer:history";
 
 export function loadHistory(): HistoryEntry[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
-  } catch {
-    return [];
-  }
+  return readLocalStorageJSON<HistoryEntry[]>(STORAGE_KEY, [], Array.isArray);
 }
 
 export function saveHistory(history: HistoryEntry[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  writeLocalStorageJSON(STORAGE_KEY, history);
 }
 
 export function appendHistory(history: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {

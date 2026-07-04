@@ -81,6 +81,11 @@ function levelProgress(language: TargetLanguage, level: Level): LevelProgress {
   };
 }
 
+// スコアはレベルごとに100点刻み（A1: 0-100, A2: 100-200, B1: 200-300, B2: 300-400）。
+// レベル内の readiness（0-100%）がそのまま端数になるので、数字だけでどのレベルの
+// どのあたりにいるか直感的に分かる。
+export const MAX_SCORE = LEVEL_ORDER.length * 100;
+
 export function getLearningProgress(language: TargetLanguage): LearningProgress {
   const levels = LEVEL_ORDER.map((level) => levelProgress(language, level));
   const activeIndex = levels.findIndex((level) => !level.passed);
@@ -88,9 +93,7 @@ export function getLearningProgress(language: TargetLanguage): LearningProgress 
   const active = levels[index];
   const allPassed = activeIndex === -1;
   const passedLevels = levels.filter((level) => level.passed).length;
-  const score = allPassed
-    ? 1000
-    : Math.min(999, index * 250 + Math.round((active.readiness / 100) * 250));
+  const score = allPassed ? MAX_SCORE : index * 100 + active.readiness;
 
   return {
     level: active.level,
