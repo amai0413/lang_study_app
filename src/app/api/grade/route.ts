@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseAIJSON } from "@/lib/aiJson";
 import { generateGeminiText, hasGeminiApiKey } from "@/lib/gemini";
 import { LANGUAGE_LABELS, isTargetLanguage, targetLanguageListLabel } from "@/lib/languages";
-import { toTraditionalChinese } from "@/lib/textNormalize";
+import { normalizeForMatch, toTraditionalChinese } from "@/lib/textNormalize";
 import type { TargetLanguage, Level } from "@/types/question";
 
 // 採点 + 回答を踏まえた解説を1回で生成する。
@@ -55,9 +55,9 @@ const SYSTEM_PROMPT = `あなたは言語学習アプリの採点・文法解説
 **意味：** [その型で言えること]
 
 **入れ替え：**
-| 入れる語 | 意味 | 例文 |
-| --- | --- | --- |
-| [語句] | [意味] | [テンプレートに入れた自然な例文] |
+| 入れる語 | 読み方 | 意味 | 例文 |
+| --- | --- | --- | --- |
+| [語句] | [読み] | [意味] | [テンプレートに入れた自然な例文] |
 
 **自分で言うなら：**
 - [学習者がすぐ使える短い応用文1]　[日本語訳]
@@ -230,6 +230,40 @@ function normalizeChineseGradeResult(parsed: Record<string, unknown>): Record<st
   };
 }
 
+// AIは採点・解説・単語ごとの記憶判定・観点別評価を1回のJSONでまとめて出しているため、
+// 全体を「acceptable」寄りに甘く見た勢いで単語の remembered/correctness まで
+// 引きずられて緩くなることがある（例: 中心語彙を書いていないのに correct 扱いなど）。
+// ここでは「その単語が実際に回答文の中に存在するか」だけを機械的に裏取りし、
+// 存在しないのにAIが correct/partial/remembered=true と言っている場合は上書きする。
+function verifyWordUsage(
+  words: unknown,
+  userAnswer: string,
+  targetLanguage: TargetLanguage,
+): unknown {
+  if (!Array.isArray(words)) return words;
+  const normalizedAnswer = normalizeForMatch(targetLanguage, userAnswer);
+
+  return words.map((word) => {
+    if (!word || typeof word !== "object") return word;
+    const item = word as Record<string, unknown>;
+    const surface = typeof item.surface === "string" ? item.surface : "";
+    const normalizedSurface = normalizeForMatch(targetLanguage, surface);
+    if (!normalizedSurface) return item;
+    if (normalizedAnswer.includes(normalizedSurface)) return item;
+
+    const claimedKnown =
+      item.remembered === true || item.correctness === "correct" || item.correctness === "partial";
+    if (!claimedKnown) return item;
+
+    return {
+      ...item,
+      remembered: false,
+      correctness: "incorrect",
+      note: "回答にこの単語が見当たらないため、未習得として記録しました。",
+    };
+  });
+}
+
 export async function POST(request: NextRequest) {
   if (!hasGeminiApiKey()) {
     return NextResponse.json({ error: "GEMINI_API_KEY が設定されていません。" }, { status: 500 });
@@ -298,7 +332,7 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
 - 「あなたの回答について」という見出しや内容は explanationMarkdown には書かない。回答評価は answerAssessment にだけ入れる
 - explanationMarkdown の「2. そのまま使える型」は、文法説明ではなく「次に似た文を自力で作るためのテンプレート」にする
 - 「2. そのまま使える型」には、必ず「型」「意味」「入れ替え表」「自分で言うなら」「注意」を入れる
-- 入れ替え表には、今回の文の空欄に入れられる実用単語を2〜4個入れ、それぞれ自然な例文も書く
+- 入れ替え表には、今回の文の空欄に入れられる実用単語を2〜4個入れ、それぞれ読み方と自然な例文も書く。中国語なら読み方は声調記号つき拼音、ヒンディー語ならローマ字、スペイン語なら英語の意味を書く
 - 注意には、性別・時制・語順・助詞・自然な会話での使いどころなど、今回の回答に役立つ実践的な注意を1〜2個だけ書く
 
 この回答を採点し、指定のJSON形式で返してください。単語解説は最大8語に絞り、回答評価は answerAssessment の単語・文法・自然さに分けて具体的に説明すること。`;
@@ -326,6 +360,7 @@ ${acceptedAnswers?.length ? `正解バリエーション: ${acceptedAnswers.join
     if (targetLanguage === "zh") {
       parsed = normalizeChineseGradeResult(parsed);
     }
+    parsed.words = verifyWordUsage(parsed.words, userAnswer, targetLanguage);
 
     if (!parsed.status || !parsed.explanationMarkdown) {
       return NextResponse.json({ error: "採点結果が不完全です。" }, { status: 500 });

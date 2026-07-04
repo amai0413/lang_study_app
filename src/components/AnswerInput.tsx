@@ -167,22 +167,34 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
     }
   };
 
+  const fallbackToRecording = (message?: string) => {
+    recognitionRef.current = null;
+    setIsListening(false);
+    if (canRecord) {
+      if (message) setSpeechError(`${message} 録音で文字起こしします。`);
+      void startRecording();
+      return;
+    }
+    if (message) setSpeechError(message);
+  };
+
   const startBrowserSpeechRecognition = () => {
-    if (disabled) return;
+    if (disabled) return false;
     if (isListening) {
       recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       setIsListening(false);
-      return;
+      return true;
     }
 
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      setSpeechError("このブラウザでは音声認識に対応していません。Chrome または Safari で試してください。");
-      return;
+      void startRecording();
+      return false;
     }
     if (typeof window !== "undefined" && !window.isSecureContext && window.location.hostname !== "localhost") {
       setSpeechError("音声認識には HTTPS または localhost が必要です。");
-      return;
+      return false;
     }
 
     const recognition = new SpeechRecognition();
@@ -209,24 +221,43 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
         "audio-capture": "マイクが見つかりません。入力デバイスを確認してください。",
         network: "音声認識サービスに接続できませんでした。",
       };
-      setSpeechError(messages[event.error] ?? `音声を認識できませんでした。(${event.error})`);
-      setIsListening(false);
+      const message = messages[event.error] ?? `音声を認識できませんでした。(${event.error})`;
+      if (event.error === "not-allowed" || event.error === "audio-capture") {
+        setSpeechError(message);
+        setIsListening(false);
+        return;
+      }
+      fallbackToRecording(message);
     };
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null;
+        setIsListening(false);
+      }
+    };
     recognitionRef.current = recognition;
     try {
       recognition.start();
       setIsListening(true);
     } catch {
-      setSpeechError("音声認識を開始できませんでした。少し待ってからもう一度試してください。");
-      setIsListening(false);
+      fallbackToRecording("音声認識を開始できませんでした。");
     }
+    return true;
   };
 
   const handleSpeech = async () => {
     if (disabled || isTranscribing) return;
     if (isListening && mediaRecorderRef.current?.state === "recording") {
       stopRecording();
+      return;
+    }
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+    if (canListen) {
+      startBrowserSpeechRecognition();
       return;
     }
     const didUseRecorder = await startRecording();
@@ -242,19 +273,19 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
           disabled={disabled}
           placeholder="ここに回答を入力してください。"
           rows={3}
-          className="min-h-28 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 pr-24 text-base font-semibold text-zinc-900 outline-none transition-colors placeholder:font-medium placeholder:text-zinc-400 focus:border-emerald-500 disabled:bg-zinc-50 disabled:text-zinc-400"
+          className="min-h-32 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3.5 pr-28 text-lg font-semibold text-zinc-900 outline-none transition-colors placeholder:font-medium placeholder:text-zinc-400 focus:border-[var(--bn-good-border)] disabled:bg-zinc-50 disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500 dark:disabled:bg-zinc-950 dark:disabled:text-zinc-500"
         />
         <button
           type="button"
           onClick={handleSpeech}
           disabled={disabled || isTranscribing}
           className={[
-            "absolute right-3 top-3 min-h-9 rounded-lg px-3 text-xs font-black shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+            "absolute right-3 top-3 min-h-10 rounded-lg px-4 text-sm font-black shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
             isListening
-              ? "bg-rose-600 text-white hover:bg-rose-700"
+              ? "border bn-semantic-bad"
               : canRecord || canListen
-                ? "border border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                : "border border-amber-200 bg-amber-50 text-amber-700",
+                ? "border border-zinc-200 bg-white text-zinc-600 hover:border-[var(--bn-good-border)] hover:bg-[var(--bn-good-bg)] hover:text-[var(--bn-good-text)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                : "border bn-semantic-warn",
           ].join(" ")}
           title={canRecord ? "録音して回答" : canListen ? "音声で回答" : "このブラウザでは音声入力に対応していません"}
           aria-pressed={isListening}
@@ -262,7 +293,7 @@ export default function AnswerInput({ value, onChange, language, disabled }: Ans
           {isTranscribing ? "変換中" : isListening ? "停止" : "音声"}
         </button>
       </div>
-      {speechError ? <p className="text-xs font-bold text-rose-600">{speechError}</p> : null}
+      {speechError ? <p className="text-xs font-bold bn-text-bad">{speechError}</p> : null}
     </div>
   );
 }

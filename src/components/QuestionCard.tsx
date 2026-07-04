@@ -19,20 +19,20 @@ export default function QuestionCard({
   return (
     <div
       className={[
-        "flex w-full flex-col border border-zinc-200 bg-white shadow-sm transition-all duration-700 ease-out",
+        "flex w-full flex-col border border-zinc-200 bg-white shadow-sm transition-all duration-700 ease-out dark:border-zinc-800 dark:bg-zinc-900",
         isHero
-          ? "items-center gap-4 rounded-lg px-5 py-8 text-center sm:px-8 sm:py-10 lg:py-14"
-          : "items-start gap-3 rounded-lg p-4 text-left sm:p-5",
+          ? "items-center gap-5 rounded-lg px-5 py-8 text-center sm:px-8 sm:py-10 lg:py-14"
+          : "items-start gap-4 rounded-lg p-5 text-left sm:p-6",
       ].join(" ")}
     >
-      <span className="w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-700">
+      <span className="w-fit rounded-full border px-2.5 py-1 text-xs font-black bn-semantic-warn">
         {levelLabel[question.level]}
       </span>
-      <p className="text-sm font-bold text-zinc-400">この日本語の文を、手入力または音声で答えてください</p>
+      <p className="text-base font-bold text-zinc-400 dark:text-zinc-500">この日本語の文を、手入力または音声で答えてください</p>
       <p
         className={[
-          "min-w-0 font-black leading-relaxed text-zinc-950 transition-all duration-700 ease-out",
-          isHero ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl",
+          "min-w-0 font-black leading-relaxed text-zinc-950 transition-all duration-700 ease-out dark:text-zinc-50",
+          isHero ? "text-4xl sm:text-5xl lg:text-6xl" : "text-3xl sm:text-4xl",
         ].join(" ")}
       >
         {question.japanesePrompt}

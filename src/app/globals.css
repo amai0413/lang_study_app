@@ -1,8 +1,55 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #fbfaf6;
   --foreground: #171717;
+  --bn-progress-track: #e4e4e7;
+  --bn-good-bg: #ecfdf5;
+  --bn-good-bg-strong: #d1fae5;
+  --bn-good-border: #a7f3d0;
+  --bn-good-text: #047857;
+  --bn-good-text-strong: #064e3b;
+  --bn-good-solid: #10b981;
+  --bn-warn-bg: #fffbeb;
+  --bn-warn-bg-strong: #fef3c7;
+  --bn-warn-border: #fde68a;
+  --bn-warn-text: #b45309;
+  --bn-warn-text-strong: #78350f;
+  --bn-warn-solid: #f59e0b;
+  --bn-bad-bg: #fff1f2;
+  --bn-bad-bg-strong: #ffe4e6;
+  --bn-bad-border: #fecdd3;
+  --bn-bad-text: #be123c;
+  --bn-bad-text-strong: #881337;
+  --bn-bad-solid: #e11d48;
+  --bn-semantic-chip-bg: rgba(255, 255, 255, 0.84);
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --bn-progress-track: #3f3f46;
+  --bn-good-bg: #12382d;
+  --bn-good-bg-strong: #184636;
+  --bn-good-border: #31745f;
+  --bn-good-text: #b7f3d1;
+  --bn-good-text-strong: #e3fff0;
+  --bn-good-solid: #34d399;
+  --bn-warn-bg: #3a2f18;
+  --bn-warn-bg-strong: #4a3a1d;
+  --bn-warn-border: #92702a;
+  --bn-warn-text: #ffe0a3;
+  --bn-warn-text-strong: #fff3d0;
+  --bn-warn-solid: #fbbf24;
+  --bn-bad-bg: #44202a;
+  --bn-bad-bg-strong: #572735;
+  --bn-bad-border: #a94c60;
+  --bn-bad-text: #ffd2dc;
+  --bn-bad-text-strong: #fff0f3;
+  --bn-bad-solid: #fb7185;
+  --bn-semantic-chip-bg: rgba(9, 9, 11, 0.42);
 }
 
 @theme inline {
@@ -18,4 +65,171 @@ body {
   color: var(--foreground);
   font-family: var(--font-rounded-latin), "Hiragino Maru Gothic ProN", "Yu Gothic",
     "Hiragino Sans", Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+body:has(.dark) {
+  background: #09090b;
+}
+
+@keyframes bn-spin-soft {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bn-scan {
+  0% {
+    transform: translateX(-105%);
+  }
+  100% {
+    transform: translateX(205%);
+  }
+}
+
+@keyframes bn-rise {
+  0%,
+  100% {
+    transform: scaleY(0.36);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bn-fade-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bn-spin-soft {
+  animation: bn-spin-soft 8s linear infinite;
+}
+
+.bn-scan {
+  animation: bn-scan 2.2s ease-in-out infinite;
+}
+
+.bn-rise {
+  transform-origin: bottom;
+  animation: bn-rise 1.05s ease-in-out infinite;
+}
+
+.bn-fade-up {
+  animation: bn-fade-up 0.45s ease-out both;
+}
+
+.bn-text-good {
+  color: var(--bn-good-text);
+}
+
+.bn-text-warn {
+  color: var(--bn-warn-text);
+}
+
+.bn-text-bad {
+  color: var(--bn-bad-text);
+}
+
+.bn-bg-good-solid {
+  background: var(--bn-good-solid);
+}
+
+.bn-bg-warn-solid {
+  background: var(--bn-warn-solid);
+}
+
+.bn-bg-bad-solid {
+  background: var(--bn-bad-solid);
+}
+
+.bn-semantic-good,
+.bn-semantic-warn,
+.bn-semantic-bad,
+.bn-semantic-good-strong,
+.bn-semantic-warn-strong,
+.bn-semantic-bad-strong,
+.bn-mark-good,
+.bn-mark-warn,
+.bn-mark-bad {
+  border-style: solid;
+}
+
+.bn-semantic-good {
+  border-color: var(--bn-good-border);
+  background: var(--bn-good-bg);
+  color: var(--bn-good-text);
+}
+
+.bn-semantic-warn {
+  border-color: var(--bn-warn-border);
+  background: var(--bn-warn-bg);
+  color: var(--bn-warn-text);
+}
+
+.bn-semantic-bad {
+  border-color: var(--bn-bad-border);
+  background: var(--bn-bad-bg);
+  color: var(--bn-bad-text);
+}
+
+.bn-semantic-good-strong {
+  border-color: var(--bn-good-border);
+  background: var(--bn-good-bg-strong);
+  color: var(--bn-good-text-strong);
+}
+
+.bn-semantic-warn-strong {
+  border-color: var(--bn-warn-border);
+  background: var(--bn-warn-bg-strong);
+  color: var(--bn-warn-text-strong);
+}
+
+.bn-semantic-bad-strong {
+  border-color: var(--bn-bad-border);
+  background: var(--bn-bad-bg-strong);
+  color: var(--bn-bad-text-strong);
+}
+
+.bn-semantic-badge {
+  background: var(--bn-semantic-chip-bg);
+}
+
+.bn-mark-good,
+.bn-mark-warn,
+.bn-mark-bad {
+  background: var(--bn-semantic-chip-bg);
+}
+
+.bn-mark-good {
+  border-color: var(--bn-good-border);
+  color: var(--bn-good-text-strong);
+}
+
+.bn-mark-warn {
+  border-color: var(--bn-warn-border);
+  color: var(--bn-warn-text-strong);
+}
+
+.bn-mark-bad {
+  border-color: var(--bn-bad-border);
+  color: var(--bn-bad-text-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bn-spin-soft,
+  .bn-scan,
+  .bn-rise,
+  .bn-fade-up {
+    animation: none;
+  }
 }

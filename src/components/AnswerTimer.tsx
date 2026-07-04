@@ -38,9 +38,9 @@ export default function AnswerTimer({ level, paused, onExpire }: AnswerTimerProp
   const progress = useMemo(() => Math.round((remaining / limit) * 100), [limit, remaining]);
   const tone =
     remaining === 0
-      ? "border-rose-200 bg-rose-50 text-rose-700"
+      ? "bn-semantic-bad"
       : remaining <= 10
-        ? "border-amber-200 bg-amber-50 text-amber-700"
+        ? "bn-semantic-warn"
         : "border-sky-100 bg-white text-sky-700";
 
   return (
